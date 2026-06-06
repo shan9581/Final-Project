@@ -1,0 +1,28 @@
+---
+title: Workout Tracker — Component Overview
+---
+graph TB
+    subgraph Browser["Browser (Client)"]
+        HTML["index.html\nLayout & structure"]
+        CSS["style.css\nVisual styling"]
+        JS["app.js\nfetch() calls to API\nRenders charts & tables"]
+    end
+
+    subgraph Server["Flask Server  (server/)"]
+        APP["app.py\nURL routes / endpoints\nValidates input\nFormats JSON responses"]
+        REC["recommendation.py\nPure function:\nrecommend(history) → weight, reps\nEpley 1RM calculation"]
+        DB_MOD["db.py\nOpens SQLite connection\nRuns SQL queries\nReturns plain Python dicts"]
+    end
+
+    subgraph Storage["Persistent Storage"]
+        SQLITE[("workout.db\nSQLite file on disk\n─────────────\nexercises table\nsets table")]
+    end
+
+    JS -- "HTTP GET / POST\n(JSON)" --> APP
+    APP --> REC
+    APP --> DB_MOD
+    DB_MOD -- "SQL" --> SQLITE
+
+    style Browser fill:#dbeafe,stroke:#3b82f6
+    style Server fill:#dcfce7,stroke:#16a34a
+    style Storage fill:#fef9c3,stroke:#ca8a04

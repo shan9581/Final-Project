@@ -1,0 +1,23 @@
+---
+title: Database Schema (Entity-Relationship Diagram)
+---
+erDiagram
+    EXERCISES {
+        integer id PK "Auto-increment primary key"
+        text    name    "e.g. Bench Press"
+        integer rep_range_low  "e.g. 5"
+        integer rep_range_high "e.g. 8"
+        real    weight_increment "e.g. 5.0 lbs"
+        text    created_at "ISO 8601 timestamp"
+    }
+
+    SETS {
+        integer id PK "Auto-increment primary key"
+        integer exercise_id FK "→ exercises.id"
+        text    date   "YYYY-MM-DD session date"
+        real    weight "Weight used"
+        integer reps   "Reps completed"
+        text    logged_at "ISO 8601 timestamp"
+    }
+
+    EXERCISES ||--o{ SETS : "has many"

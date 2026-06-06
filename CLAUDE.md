@@ -96,6 +96,24 @@ Lives entirely in `server/recommendation.py`. Three pure functions:
 
 ---
 
+## Running the App
+
+**Always run from the project root (`Final-Project/`):**
+
+```bash
+# Install dependencies (one-time)
+python -m pip install -r requirements.txt
+
+# Start the server
+python -m flask --app server/app.py run
+```
+
+Then open **http://127.0.0.1:5000** in your browser.
+
+> If you run `flask` from a different directory it will pick up the wrong `server/app.py`. Always `cd` into `Final-Project` first.
+
+---
+
 ## Testing Approach
 
 TDD: tests are written before code. Three tiers:

@@ -125,10 +125,10 @@ Run all tests: `pytest tests/ -v`
 |---|---|
 | Architecture docs + Mermaid diagrams | Done |
 | Testing plan (32 tests) | Done |
-| Test files (conftest + 3 test modules) | Not started |
-| `server/schema.sql` | Not started |
-| `server/db.py` | Not started |
-| `server/recommendation.py` | Not started |
-| `server/app.py` | Not started |
-| `client/` (HTML, CSS, JS) | Not started |
-| `requirements.txt` / `README.md` | Not started |
+| Test files (conftest + 3 test modules) | Done |
+| `server/schema.sql` | Done |
+| `server/db.py` | Done |
+| `server/recommendation.py` | Done |
+| `server/app.py` | Done |
+| `client/` (HTML, CSS, JS) | Done |
+| `requirements.txt` / `README.md` | Done |

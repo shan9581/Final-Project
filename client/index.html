@@ -12,10 +12,47 @@
   <!-- ── Header ─────────────────────────────────────────────────────────── -->
   <header>
     <span id="header-title" class="header-title" role="button" tabindex="0">Workout Tracker</span>
+    <button id="btn-my-split" class="btn-secondary">My Split</button>
   </header>
 
-  <!-- ── Split View (home) ──────────────────────────────────────────────── -->
-  <main id="view-split" class="view">
+  <!-- ── Calendar View (home) ───────────────────────────────────────────── -->
+  <main id="view-calendar" class="view">
+    <div class="cal-nav">
+      <button id="btn-cal-prev" class="cal-nav-btn">&#8592;</button>
+      <span id="cal-month-label" class="cal-month-label"></span>
+      <button id="btn-cal-next" class="cal-nav-btn">&#8594;</button>
+    </div>
+    <div id="cal-grid" class="cal-grid"></div>
+  </main>
+
+  <!-- ── Session View (a specific date) ─────────────────────────────────── -->
+  <main id="view-session" class="view" hidden>
+    <button id="btn-back-to-cal" class="btn-back">&#8592; Back</button>
+    <h2 id="session-date-title"></h2>
+
+    <!-- Step 1: pick a workout day -->
+    <div id="session-picker">
+      <p class="setup-subtitle">What are you training today?</p>
+      <div id="session-day-options" class="exercise-grid"></div>
+      <p id="session-no-split" class="empty-state" hidden>
+        No workout days set up yet.
+        <button id="btn-go-to-split" class="btn-link">Set up your split</button>
+      </p>
+    </div>
+
+    <!-- Step 2: log sets for each exercise -->
+    <div id="session-log" hidden>
+      <div class="session-log-header">
+        <p id="session-day-label" class="detail-meta"></p>
+        <button id="btn-change-workout" class="btn-secondary btn-sm">Change</button>
+      </div>
+      <div id="session-exercises"></div>
+    </div>
+  </main>
+
+  <!-- ── Split Management View ──────────────────────────────────────────── -->
+  <main id="view-split" class="view" hidden>
+    <button id="btn-back-split-to-cal" class="btn-back">&#8592; Back</button>
     <div class="view-header">
       <h2>My Split</h2>
       <div class="header-actions">
@@ -29,9 +66,9 @@
     <div id="day-grid" class="exercise-grid"></div>
   </main>
 
-  <!-- ── Day View ───────────────────────────────────────────────────────── -->
+  <!-- ── Day Management View ────────────────────────────────────────────── -->
   <main id="view-day" class="view" hidden>
-    <button id="btn-back-to-split" class="btn-back">← Back to Split</button>
+    <button id="btn-back-to-split" class="btn-back">&#8592; Back to Split</button>
     <div class="day-header">
       <h2 id="day-title"></h2>
       <button id="btn-delete-day" class="btn-danger-sm">Delete Day</button>
@@ -42,13 +79,11 @@
 
   <!-- ── Exercise Detail View ───────────────────────────────────────────── -->
   <main id="view-detail" class="view" hidden>
-    <button id="btn-back" class="btn-back">← Back</button>
+    <button id="btn-back" class="btn-back">&#8592; Back</button>
     <h2 id="detail-title"></h2>
     <p id="detail-range" class="detail-meta"></p>
 
     <div class="detail-columns">
-
-      <!-- Left: log a set -->
       <section class="card">
         <h3>Log a Set</h3>
         <form id="form-log-set">
@@ -66,24 +101,19 @@
         </form>
       </section>
 
-      <!-- Right: recommendation -->
       <section class="card recommendation-card">
         <h3>Next Session</h3>
-        <div id="rec-content">
-          <div class="rec-numbers">
-            <span id="rec-weight" class="rec-big">—</span>
-            <span class="rec-unit">lbs</span>
-            <span class="rec-x">×</span>
-            <span id="rec-reps" class="rec-big">—</span>
-            <span class="rec-unit">reps</span>
-          </div>
-          <p id="rec-note" class="rec-note"></p>
+        <div class="rec-numbers">
+          <span id="rec-weight" class="rec-big">—</span>
+          <span class="rec-unit">lbs</span>
+          <span class="rec-x">×</span>
+          <span id="rec-reps" class="rec-big">—</span>
+          <span class="rec-unit">reps</span>
         </div>
+        <p id="rec-note" class="rec-note"></p>
       </section>
-
     </div>
 
-    <!-- Strength trend chart -->
     <section class="card chart-card">
       <h3>Strength Trend (Estimated 1RM)</h3>
       <div class="chart-wrapper">
@@ -92,20 +122,18 @@
       <p id="chart-empty" class="empty-state" hidden>Log at least one set to see your trend.</p>
     </section>
 
-    <!-- History table -->
     <section class="card">
       <h3>Session History</h3>
       <div id="history-container">
         <p class="empty-state">No sets logged yet.</p>
       </div>
     </section>
-
   </main>
 
   <!-- ── Add Day Modal ──────────────────────────────────────────────────── -->
   <div id="modal-add-day" class="modal-overlay" hidden>
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="add-day-heading">
-      <h2 id="add-day-heading">New Workout Day</h2>
+    <div class="modal" role="dialog" aria-modal="true">
+      <h2>New Workout Day</h2>
       <form id="form-add-day">
         <label>Day name
           <input type="text" id="input-day-name" placeholder="e.g. Push Day" required />
@@ -121,8 +149,8 @@
 
   <!-- ── Exercise Picker Modal ──────────────────────────────────────────── -->
   <div id="modal-picker" class="modal-overlay" hidden>
-    <div class="modal picker-modal" role="dialog" aria-modal="true" aria-labelledby="picker-heading">
-      <h2 id="picker-heading">Add Exercise</h2>
+    <div class="modal picker-modal" role="dialog" aria-modal="true">
+      <h2>Add Exercise</h2>
       <input type="text" id="picker-search" class="picker-search" placeholder="Search exercises..." />
       <div id="picker-preset-list" class="picker-list"></div>
       <hr class="picker-divider" />
@@ -154,8 +182,6 @@
   <!-- ── Quick Setup Modal ──────────────────────────────────────────────── -->
   <div id="modal-setup" class="modal-overlay" hidden>
     <div class="modal setup-modal" role="dialog" aria-modal="true">
-
-      <!-- Step 1: Goal -->
       <div id="setup-step-1">
         <h2>Quick Setup</h2>
         <p class="setup-subtitle">What is your main training goal?</p>
@@ -173,16 +199,13 @@
         </div>
         <button id="btn-cancel-setup" class="btn-secondary" style="margin-top:1.25rem">Cancel</button>
       </div>
-
-      <!-- Step 2: Template -->
       <div id="setup-step-2" hidden>
-        <button id="btn-setup-back" class="btn-back">← Back</button>
+        <button id="btn-setup-back" class="btn-back">&#8592; Back</button>
         <h2>Choose a Split</h2>
         <p class="setup-subtitle" id="setup-goal-label"></p>
         <div id="template-grid" class="template-grid"></div>
         <p id="setup-error" class="error" hidden></p>
       </div>
-
     </div>
   </div>
 

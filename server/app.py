@@ -6,6 +6,7 @@ from server.db import (
     get_workout_days, get_workout_day, insert_workout_day, delete_workout_day,
     get_day_exercises, add_exercise_to_day, remove_exercise_from_day, get_or_create_exercise,
     update_exercise_rep_ranges,
+    get_session, insert_session, get_logged_dates_in_month, get_sets_on_date,
 )
 from server.recommendation import recommend, build_trend
 from server.presets import PRESET_EXERCISES, SPLIT_TEMPLATES, REP_RANGES
@@ -212,6 +213,35 @@ def create_app(config=None):
     def remove_day_exercise(day_id, exercise_id):
         remove_exercise_from_day(get_conn(), day_id, exercise_id)
         return "", 204
+
+    # ── Sessions & Calendar ───────────────────────────────────────────────────
+
+    @app.route("/api/sessions/<date>", methods=["GET"])
+    def get_session_route(date):
+        session = get_session(get_conn(), date)
+        if session is None:
+            return jsonify(None)
+        exercises = get_day_exercises(get_conn(), session["workout_day_id"])
+        return jsonify({"session": session, "exercises": exercises})
+
+    @app.route("/api/sessions", methods=["POST"])
+    def create_session():
+        data = request.get_json(silent=True) or {}
+        date = data.get("date")
+        workout_day_id = data.get("workout_day_id")
+        if not date or not workout_day_id:
+            return jsonify({"error": "date and workout_day_id are required"}), 400
+        session = insert_session(get_conn(), date, int(workout_day_id))
+        exercises = get_day_exercises(get_conn(), session["workout_day_id"])
+        return jsonify({"session": session, "exercises": exercises}), 201
+
+    @app.route("/api/sessions/<date>/sets", methods=["GET"])
+    def session_sets(date):
+        return jsonify(get_sets_on_date(get_conn(), date))
+
+    @app.route("/api/calendar/<int:year>/<int:month>", methods=["GET"])
+    def calendar_dates(year, month):
+        return jsonify(get_logged_dates_in_month(get_conn(), year, month))
 
     return app
 

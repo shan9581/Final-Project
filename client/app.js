@@ -1,12 +1,9 @@
 "use strict";
 
-// ── State ────────────────────────────────────────────────────────────────────
-let currentExerciseId = null;
-let currentDayId      = null;
-let currentDay        = null;
-let trendChart        = null;
-let allPresets = [];
-let setupGoal  = null;
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const MONTH_NAMES = ["January","February","March","April","May","June",
+                     "July","August","September","October","November","December"];
 
 const SPLIT_TEMPLATES = [
   {
@@ -14,9 +11,9 @@ const SPLIT_TEMPLATES = [
     name: "Push / Pull / Legs",
     description: "3 days — the most popular split for intermediate lifters",
     days: [
-      { name: "Push Day", exercises: ["Bench Press", "Overhead Press", "Incline Bench Press", "Tricep Pushdown", "Lateral Raises"] },
-      { name: "Pull Day", exercises: ["Deadlift", "Pull-ups", "Barbell Row", "Barbell Curl", "Face Pulls"] },
-      { name: "Legs Day", exercises: ["Squat", "Romanian Deadlift", "Leg Press", "Leg Curl", "Calf Raises"] },
+      { name: "Push Day", exercises: ["Bench Press","Overhead Press","Incline Bench Press","Tricep Pushdown","Lateral Raises"] },
+      { name: "Pull Day", exercises: ["Deadlift","Pull-ups","Barbell Row","Barbell Curl","Face Pulls"] },
+      { name: "Legs Day", exercises: ["Squat","Romanian Deadlift","Leg Press","Leg Curl","Calf Raises"] },
     ],
   },
   {
@@ -24,8 +21,8 @@ const SPLIT_TEMPLATES = [
     name: "Upper / Lower",
     description: "2 days — ideal for beginners or 4-day programs",
     days: [
-      { name: "Upper Body", exercises: ["Bench Press", "Barbell Row", "Overhead Press", "Barbell Curl", "Tricep Pushdown"] },
-      { name: "Lower Body", exercises: ["Squat", "Romanian Deadlift", "Leg Press", "Leg Curl", "Calf Raises"] },
+      { name: "Upper Body", exercises: ["Bench Press","Barbell Row","Overhead Press","Barbell Curl","Tricep Pushdown"] },
+      { name: "Lower Body", exercises: ["Squat","Romanian Deadlift","Leg Press","Leg Curl","Calf Raises"] },
     ],
   },
   {
@@ -33,7 +30,7 @@ const SPLIT_TEMPLATES = [
     name: "Full Body",
     description: "1 day — great for 3x/week training",
     days: [
-      { name: "Full Body", exercises: ["Squat", "Bench Press", "Barbell Row", "Overhead Press", "Romanian Deadlift"] },
+      { name: "Full Body", exercises: ["Squat","Bench Press","Barbell Row","Overhead Press","Romanian Deadlift"] },
     ],
   },
   {
@@ -41,61 +38,92 @@ const SPLIT_TEMPLATES = [
     name: "Bro Split",
     description: "5 days — one muscle group per session",
     days: [
-      { name: "Chest Day",     exercises: ["Bench Press", "Incline Bench Press", "Dips"] },
-      { name: "Back Day",      exercises: ["Deadlift", "Pull-ups", "Barbell Row", "Cable Row"] },
-      { name: "Shoulders Day", exercises: ["Overhead Press", "Lateral Raises", "Face Pulls", "Dumbbell Shoulder Press"] },
-      { name: "Arms Day",      exercises: ["Barbell Curl", "Dumbbell Curl", "Hammer Curl", "Tricep Pushdown", "Skull Crushers"] },
-      { name: "Legs Day",      exercises: ["Squat", "Romanian Deadlift", "Leg Press", "Leg Curl", "Calf Raises"] },
+      { name: "Chest Day",     exercises: ["Bench Press","Incline Bench Press","Dips"] },
+      { name: "Back Day",      exercises: ["Deadlift","Pull-ups","Barbell Row","Cable Row"] },
+      { name: "Shoulders Day", exercises: ["Overhead Press","Lateral Raises","Face Pulls","Dumbbell Shoulder Press"] },
+      { name: "Arms Day",      exercises: ["Barbell Curl","Dumbbell Curl","Hammer Curl","Tricep Pushdown","Skull Crushers"] },
+      { name: "Legs Day",      exercises: ["Squat","Romanian Deadlift","Leg Press","Leg Curl","Calf Raises"] },
     ],
   },
 ];
 
+// ── State ────────────────────────────────────────────────────────────────────
+
+let calYear  = new Date().getFullYear();
+let calMonth = new Date().getMonth();
+let loggedDates = new Set();
+
+let currentSessionDate  = null;
+let currentSessionDayId = null;
+
+let currentDayId = null;
+let currentDay   = null;
+
+let currentExerciseId = null;
+let backDestination   = "calendar"; // "calendar" | "session" | "day"
+
+let trendChart = null;
+let allPresets = [];
+let setupGoal  = null;
+
 // ── DOM refs ─────────────────────────────────────────────────────────────────
-const viewSplit  = document.getElementById("view-split");
-const viewDay    = document.getElementById("view-day");
-const viewDetail = document.getElementById("view-detail");
 
-const dayGrid    = document.getElementById("day-grid");
-const splitEmpty = document.getElementById("split-empty");
-const dayTitle   = document.getElementById("day-title");
-const dayExercisesList = document.getElementById("day-exercises-list");
+const viewCalendar        = document.getElementById("view-calendar");
+const calGrid             = document.getElementById("cal-grid");
+const calMonthLabel       = document.getElementById("cal-month-label");
 
-const detailTitle   = document.getElementById("detail-title");
-const detailRange   = document.getElementById("detail-range");
-const formLogSet    = document.getElementById("form-log-set");
-const inputDate     = document.getElementById("input-date");
-const inputWeight   = document.getElementById("input-weight");
-const inputReps     = document.getElementById("input-reps");
-const logFeedback   = document.getElementById("log-feedback");
+const viewSession         = document.getElementById("view-session");
+const sessionDateTitle    = document.getElementById("session-date-title");
+const sessionPicker       = document.getElementById("session-picker");
+const sessionDayOptions   = document.getElementById("session-day-options");
+const sessionNoSplit      = document.getElementById("session-no-split");
+const sessionLog          = document.getElementById("session-log");
+const sessionDayLabel     = document.getElementById("session-day-label");
+const sessionExercises    = document.getElementById("session-exercises");
 
-const recWeight     = document.getElementById("rec-weight");
-const recReps       = document.getElementById("rec-reps");
-const recNote       = document.getElementById("rec-note");
+const viewSplit           = document.getElementById("view-split");
+const dayGrid             = document.getElementById("day-grid");
+const splitEmpty          = document.getElementById("split-empty");
 
-const historyContainer = document.getElementById("history-container");
-const chartEmpty       = document.getElementById("chart-empty");
+const viewDay             = document.getElementById("view-day");
+const dayTitle            = document.getElementById("day-title");
+const dayExercisesList    = document.getElementById("day-exercises-list");
 
-const modalAddDay  = document.getElementById("modal-add-day");
-const formAddDay   = document.getElementById("form-add-day");
-const inputDayName = document.getElementById("input-day-name");
-const addDayError  = document.getElementById("add-day-error");
+const viewDetail          = document.getElementById("view-detail");
+const detailTitle         = document.getElementById("detail-title");
+const detailRange         = document.getElementById("detail-range");
+const formLogSet          = document.getElementById("form-log-set");
+const inputDate           = document.getElementById("input-date");
+const inputWeight         = document.getElementById("input-weight");
+const inputReps           = document.getElementById("input-reps");
+const logFeedback         = document.getElementById("log-feedback");
+const recWeight           = document.getElementById("rec-weight");
+const recReps             = document.getElementById("rec-reps");
+const recNote             = document.getElementById("rec-note");
+const historyContainer    = document.getElementById("history-container");
+const chartEmpty          = document.getElementById("chart-empty");
 
-const modalSetup       = document.getElementById("modal-setup");
-const setupStep1       = document.getElementById("setup-step-1");
-const setupStep2       = document.getElementById("setup-step-2");
-const setupGoalLabel   = document.getElementById("setup-goal-label");
-const templateGrid     = document.getElementById("template-grid");
-const setupError       = document.getElementById("setup-error");
+const modalAddDay         = document.getElementById("modal-add-day");
+const formAddDay          = document.getElementById("form-add-day");
+const inputDayName        = document.getElementById("input-day-name");
+const addDayError         = document.getElementById("add-day-error");
 
-const modalPicker      = document.getElementById("modal-picker");
-const pickerSearch     = document.getElementById("picker-search");
-const pickerList       = document.getElementById("picker-preset-list");
-const formCustomEx     = document.getElementById("form-custom-exercise");
-const pickerCustomName = document.getElementById("picker-custom-name");
-const pickerCustomLow  = document.getElementById("picker-custom-low");
-const pickerCustomHigh = document.getElementById("picker-custom-high");
-const pickerCustomInc  = document.getElementById("picker-custom-increment");
-const pickerError      = document.getElementById("picker-error");
+const modalPicker         = document.getElementById("modal-picker");
+const pickerSearch        = document.getElementById("picker-search");
+const pickerList          = document.getElementById("picker-preset-list");
+const formCustomEx        = document.getElementById("form-custom-exercise");
+const pickerCustomName    = document.getElementById("picker-custom-name");
+const pickerCustomLow     = document.getElementById("picker-custom-low");
+const pickerCustomHigh    = document.getElementById("picker-custom-high");
+const pickerCustomInc     = document.getElementById("picker-custom-increment");
+const pickerError         = document.getElementById("picker-error");
+
+const modalSetup          = document.getElementById("modal-setup");
+const setupStep1          = document.getElementById("setup-step-1");
+const setupStep2          = document.getElementById("setup-step-2");
+const setupGoalLabel      = document.getElementById("setup-goal-label");
+const templateGrid        = document.getElementById("template-grid");
+const setupError          = document.getElementById("setup-error");
 
 // ── API helpers ───────────────────────────────────────────────────────────────
 
@@ -106,7 +134,7 @@ async function api(method, path, body) {
   if (res.status === 204) return null;
   const ct = res.headers.get("content-type") || "";
   if (!ct.includes("application/json")) {
-    throw new Error(`Server error (${res.status}) — please restart the Flask server and refresh the page.`);
+    throw new Error(`Server error (${res.status}) — please restart the Flask server and refresh.`);
   }
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Request failed");
@@ -117,69 +145,282 @@ const get  = (path)       => api("GET",    path);
 const post = (path, body) => api("POST",   path, body);
 const del  = (path)       => api("DELETE", path);
 
-// ── Views ─────────────────────────────────────────────────────────────────────
+// ── View helpers ──────────────────────────────────────────────────────────────
 
-function showSplit() {
-  viewSplit.hidden  = false;
-  viewDay.hidden    = true;
-  viewDetail.hidden = true;
-  currentDayId      = null;
-  currentDay        = null;
-  currentExerciseId = null;
+function hideAllViews() {
+  viewCalendar.hidden = true;
+  viewSession.hidden  = true;
+  viewSplit.hidden    = true;
+  viewDay.hidden      = true;
+  viewDetail.hidden   = true;
+}
+
+// ── Calendar ──────────────────────────────────────────────────────────────────
+
+async function showCalendar() {
+  hideAllViews();
+  viewCalendar.hidden = false;
+  const dates = await get(`/api/calendar/${calYear}/${calMonth + 1}`);
+  loggedDates = new Set(dates);
+  renderCalendarGrid();
+}
+
+function renderCalendarGrid() {
+  calMonthLabel.textContent = `${MONTH_NAMES[calMonth]} ${calYear}`;
+
+  const firstDayOfWeek = new Date(calYear, calMonth, 1).getDay();
+  const daysInMonth    = new Date(calYear, calMonth + 1, 0).getDate();
+  const todayStr       = today();
+
+  calGrid.innerHTML = "";
+
+  // Day-of-week headers
+  ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(d => {
+    const h = document.createElement("div");
+    h.className   = "cal-header-cell";
+    h.textContent = d;
+    calGrid.appendChild(h);
+  });
+
+  // Empty leading cells
+  for (let i = 0; i < firstDayOfWeek; i++) {
+    const e = document.createElement("div");
+    e.className = "cal-cell cal-empty";
+    calGrid.appendChild(e);
+  }
+
+  // Day cells
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${calYear}-${String(calMonth + 1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    const cell = document.createElement("div");
+    cell.className = "cal-cell";
+    if (dateStr === todayStr) cell.classList.add("cal-today");
+
+    const num = document.createElement("span");
+    num.className   = "cal-day-num";
+    num.textContent = d;
+    cell.appendChild(num);
+
+    if (loggedDates.has(dateStr)) {
+      const dot = document.createElement("span");
+      dot.className = "cal-dot";
+      cell.appendChild(dot);
+    }
+
+    cell.addEventListener("click", () => showSession(dateStr));
+    calGrid.appendChild(cell);
+  }
+}
+
+document.getElementById("btn-cal-prev").addEventListener("click", () => {
+  calMonth--;
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  showCalendar();
+});
+
+document.getElementById("btn-cal-next").addEventListener("click", () => {
+  calMonth++;
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  showCalendar();
+});
+
+// ── Session view ──────────────────────────────────────────────────────────────
+
+async function showSession(dateStr) {
+  currentSessionDate = dateStr;
+  hideAllViews();
+  viewSession.hidden = false;
+
+  const [y, m, d] = dateStr.split("-").map(Number);
+  sessionDateTitle.textContent = new Date(y, m - 1, d).toLocaleDateString("en-US", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+  });
+
+  sessionPicker.hidden = false;
+  sessionLog.hidden    = true;
+  sessionDayOptions.innerHTML = "";
+  sessionExercises.innerHTML  = "";
+  sessionNoSplit.hidden = true;
+
+  const result = await get(`/api/sessions/${dateStr}`);
+
+  if (result) {
+    currentSessionDayId = result.session.workout_day_id;
+    showSessionLog(result.session.workout_day_name, result.exercises, dateStr);
+  } else {
+    const days = await get("/api/workout-days");
+    renderSessionPicker(days);
+  }
+}
+
+function renderSessionPicker(days) {
+  sessionDayOptions.innerHTML = "";
+  if (days.length === 0) {
+    sessionNoSplit.hidden = false;
+    return;
+  }
+  days.forEach(day => {
+    const card = document.createElement("div");
+    card.className = "exercise-card";
+    card.innerHTML = `<h3>${esc(day.name)}</h3>`;
+    card.addEventListener("click", () => selectWorkoutDay(day));
+    sessionDayOptions.appendChild(card);
+  });
+}
+
+async function selectWorkoutDay(day) {
+  currentSessionDayId = day.id;
+  try {
+    const result = await post("/api/sessions", {
+      date: currentSessionDate,
+      workout_day_id: day.id,
+    });
+    showSessionLog(day.name, result.exercises, currentSessionDate);
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function showSessionLog(dayName, exercises, date) {
+  sessionPicker.hidden = true;
+  sessionLog.hidden    = false;
+  sessionDayLabel.textContent = dayName;
+  sessionExercises.innerHTML  = "";
+
+  // Fetch any sets already logged on this date
+  const todaySets = await get(`/api/sessions/${date}/sets`);
+  const setsByEx  = {};
+  todaySets.forEach(s => {
+    if (!setsByEx[s.exercise_id]) setsByEx[s.exercise_id] = [];
+    setsByEx[s.exercise_id].push(s);
+  });
+
+  if (exercises.length === 0) {
+    sessionExercises.innerHTML = `<p class="empty-state">No exercises in this day yet. Add some in My Split.</p>`;
+    return;
+  }
+
+  exercises.forEach(ex => {
+    const card = document.createElement("div");
+    card.className = "day-exercise-card";
+
+    const logged = setsByEx[ex.id] || [];
+    const loggedHtml = logged.map(s =>
+      `<div class="logged-set-row">${s.weight} lbs &times; ${s.reps} reps</div>`
+    ).join("");
+
+    card.innerHTML = `
+      <div class="day-exercise-header">
+        <span class="day-exercise-name" role="button" tabindex="0">${esc(ex.name)}</span>
+      </div>
+      <div class="day-rec-row">
+        <span class="day-rec-badge" id="rec-badge-${ex.id}">Loading…</span>
+      </div>
+      <div class="day-log-row">
+        <input type="number" class="input-day-weight" placeholder="Weight (lbs)" min="0" step="0.5" />
+        <input type="number" class="input-day-reps"   placeholder="Reps" min="1" step="1" />
+        <button class="btn-primary btn-log-inline">Log</button>
+        <span class="inline-feedback" hidden></span>
+      </div>
+      <div class="logged-sets-today" id="logged-today-${ex.id}">${loggedHtml}</div>
+    `;
+
+    card.querySelector(".day-exercise-name").addEventListener("click", () => {
+      backDestination = "session";
+      showDetail(ex);
+    });
+    card.querySelector(".day-exercise-name").addEventListener("keydown", e => {
+      if (e.key === "Enter") { backDestination = "session"; showDetail(ex); }
+    });
+
+    card.querySelector(".btn-log-inline").addEventListener("click", () => {
+      const wInput = card.querySelector(".input-day-weight");
+      const rInput = card.querySelector(".input-day-reps");
+      const fb     = card.querySelector(".inline-feedback");
+      logSessionSet(ex.id, wInput, rInput, fb, date);
+    });
+
+    sessionExercises.appendChild(card);
+    loadRecBadge(ex.id);
+  });
+}
+
+async function logSessionSet(exerciseId, wInput, rInput, fb, date) {
+  hideMsg(fb);
+  const weight = parseFloat(wInput.value);
+  const reps   = parseInt(rInput.value, 10);
+
+  if (!wInput.value || !rInput.value || isNaN(weight) || isNaN(reps)) {
+    showMsg(fb, "Enter weight and reps", true);
+    return;
+  }
+
+  try {
+    await post(`/api/exercises/${exerciseId}/sets`, { date, weight, reps });
+    showMsg(fb, "Logged!", false);
+    wInput.value = "";
+    rInput.value = "";
+
+    const container = document.getElementById(`logged-today-${exerciseId}`);
+    if (container) {
+      const row = document.createElement("div");
+      row.className   = "logged-set-row";
+      row.textContent = `${weight} lbs × ${reps} reps`;
+      container.appendChild(row);
+    }
+
+    loadRecBadge(exerciseId);
+
+    // Add dot to calendar if this date is in the current view
+    if (!loggedDates.has(date)) {
+      loggedDates.add(date);
+    }
+  } catch (err) {
+    showMsg(fb, err.message, true);
+  }
+}
+
+document.getElementById("btn-back-to-cal").addEventListener("click", showCalendar);
+
+document.getElementById("btn-change-workout").addEventListener("click", async () => {
+  sessionLog.hidden    = true;
+  sessionPicker.hidden = false;
+  sessionDayOptions.innerHTML = "";
+  const days = await get("/api/workout-days");
+  renderSessionPicker(days);
+});
+
+document.getElementById("btn-go-to-split").addEventListener("click", showSplitView);
+
+// ── Split management ──────────────────────────────────────────────────────────
+
+function showSplitView() {
+  hideAllViews();
+  viewSplit.hidden = false;
   loadWorkoutDays();
 }
-
-function showDay(day) {
-  currentDayId      = day.id;
-  currentDay        = day;
-  currentExerciseId = null;
-  viewSplit.hidden  = true;
-  viewDay.hidden    = false;
-  viewDetail.hidden = true;
-  dayTitle.textContent = day.name;
-  loadDayExercises(day.id);
-}
-
-function showDetail(exercise) {
-  currentExerciseId = exercise.id;
-  viewSplit.hidden  = true;
-  viewDay.hidden    = true;
-  viewDetail.hidden = false;
-
-  detailTitle.textContent = exercise.name;
-  detailRange.textContent =
-    `Rep range: ${exercise.rep_range_low}–${exercise.rep_range_high}  ·  +${exercise.weight_increment} lbs per progression`;
-
-  inputDate.value   = today();
-  inputWeight.value = "";
-  inputReps.value   = "";
-  hideMsg(logFeedback);
-
-  loadRecommendation(exercise.id);
-  loadHistory(exercise.id);
-  loadTrend(exercise.id);
-}
-
-// ── Split view ────────────────────────────────────────────────────────────────
 
 async function loadWorkoutDays() {
   const days = await get("/api/workout-days");
   dayGrid.innerHTML = "";
   splitEmpty.hidden = days.length > 0;
-
   days.forEach(day => {
     const card = document.createElement("div");
     card.className = "exercise-card";
-    card.innerHTML = `
-      <h3>${esc(day.name)}</h3>
-      <p class="card-meta">Tap to open &amp; log</p>
-    `;
+    card.innerHTML = `<h3>${esc(day.name)}</h3><p class="card-meta">Tap to manage exercises</p>`;
     card.addEventListener("click", () => showDay(day));
     dayGrid.appendChild(card);
   });
 }
 
-// ── Day view ──────────────────────────────────────────────────────────────────
+function showDay(day) {
+  currentDayId = day.id;
+  currentDay   = day;
+  hideAllViews();
+  viewDay.hidden = false;
+  dayTitle.textContent = day.name;
+  loadDayExercises(day.id);
+}
 
 async function loadDayExercises(dayId) {
   const exercises = await get(`/api/workout-days/${dayId}/exercises`);
@@ -196,35 +437,156 @@ async function loadDayExercises(dayId) {
     card.innerHTML = `
       <div class="day-exercise-header">
         <span class="day-exercise-name" role="button" tabindex="0">${esc(ex.name)}</span>
-        <button class="btn-remove" title="Remove from day">×</button>
+        <button class="btn-remove" title="Remove from day">&#215;</button>
       </div>
-      <div class="day-rec-row">
-        <span class="day-rec-badge" id="rec-badge-${ex.id}">Loading…</span>
-      </div>
-      <div class="day-log-row">
-        <input type="number" class="input-day-weight" placeholder="Weight (lbs)" min="0" step="0.5" />
-        <input type="number" class="input-day-reps"   placeholder="Reps" min="1" step="1" />
-        <button class="btn-primary btn-log-inline">Log</button>
-        <span class="inline-feedback" hidden></span>
-      </div>
+      <p class="card-meta">${ex.rep_range_low}–${ex.rep_range_high} reps &nbsp;·&nbsp; +${ex.weight_increment} lbs</p>
     `;
 
-    card.querySelector(".day-exercise-name").addEventListener("click",  () => showDetail(ex));
-    card.querySelector(".day-exercise-name").addEventListener("keydown", e => { if (e.key === "Enter") showDetail(ex); });
-
-    card.querySelector(".btn-remove").addEventListener("click", () => removeExerciseFromDay(dayId, ex.id, card));
-
-    card.querySelector(".btn-log-inline").addEventListener("click", () => {
-      const wInput = card.querySelector(".input-day-weight");
-      const rInput = card.querySelector(".input-day-reps");
-      const fb     = card.querySelector(".inline-feedback");
-      logSetInline(ex.id, wInput, rInput, fb);
+    card.querySelector(".day-exercise-name").addEventListener("click", () => {
+      backDestination = "day";
+      showDetail(ex);
     });
+    card.querySelector(".btn-remove").addEventListener("click", () =>
+      removeExerciseFromDay(dayId, ex.id, card)
+    );
 
     dayExercisesList.appendChild(card);
-    loadRecBadge(ex.id);
   });
 }
+
+async function removeExerciseFromDay(dayId, exerciseId, cardEl) {
+  try {
+    await del(`/api/workout-days/${dayId}/exercises/${exerciseId}`);
+    cardEl.remove();
+    if (!dayExercisesList.querySelector(".day-exercise-card")) {
+      dayExercisesList.innerHTML = `<p class="empty-state">No exercises yet. Add some below!</p>`;
+    }
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+document.getElementById("btn-my-split").addEventListener("click", showSplitView);
+document.getElementById("btn-back-split-to-cal").addEventListener("click", showCalendar);
+document.getElementById("btn-back-to-split").addEventListener("click", showSplitView);
+
+document.getElementById("btn-delete-day").addEventListener("click", async () => {
+  if (!confirm(`Delete "${currentDay.name}"? This cannot be undone.`)) return;
+  try {
+    await del(`/api/workout-days/${currentDayId}`);
+    showSplitView();
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+// ── Exercise Detail view ──────────────────────────────────────────────────────
+
+function showDetail(exercise) {
+  currentExerciseId = exercise.id;
+  hideAllViews();
+  viewDetail.hidden = false;
+
+  detailTitle.textContent = exercise.name;
+  detailRange.textContent =
+    `Rep range: ${exercise.rep_range_low}–${exercise.rep_range_high}  ·  +${exercise.weight_increment} lbs per progression`;
+
+  inputDate.value   = today();
+  inputWeight.value = "";
+  inputReps.value   = "";
+  hideMsg(logFeedback);
+
+  loadRecommendation(exercise.id);
+  loadHistory(exercise.id);
+  loadTrend(exercise.id);
+}
+
+document.getElementById("btn-back").addEventListener("click", () => {
+  if (backDestination === "session") showSession(currentSessionDate);
+  else if (backDestination === "day") showDay(currentDay);
+  else showCalendar();
+});
+
+async function loadRecommendation(exerciseId) {
+  const rec = await get(`/api/exercises/${exerciseId}/recommendation`);
+  recWeight.textContent = rec.weight === 0 ? "—" : rec.weight;
+  recReps.textContent   = rec.target_reps;
+  recNote.textContent   = rec.note;
+}
+
+async function loadHistory(exerciseId) {
+  const history = await get(`/api/exercises/${exerciseId}/history`);
+  if (history.length === 0) {
+    historyContainer.innerHTML = `<p class="empty-state">No sets logged yet.</p>`;
+    return;
+  }
+  const byDate = {};
+  [...history].reverse().forEach(s => {
+    if (!byDate[s.date]) byDate[s.date] = [];
+    byDate[s.date].push(s);
+  });
+  let html = `<table><thead><tr><th>Date</th><th>Weight (lbs)</th><th>Reps</th><th>Est. 1RM</th></tr></thead><tbody>`;
+  Object.entries(byDate).forEach(([date, sets]) => {
+    sets.forEach((s, i) => {
+      const orm = (s.weight * (1 + s.reps / 30)).toFixed(1);
+      html += `<tr>
+        <td>${i === 0 ? esc(date) : ""}</td>
+        <td>${s.weight}</td><td>${s.reps}</td><td>${orm}</td>
+      </tr>`;
+    });
+  });
+  html += `</tbody></table>`;
+  historyContainer.innerHTML = html;
+}
+
+async function loadTrend(exerciseId) {
+  const trend = await get(`/api/exercises/${exerciseId}/trend`);
+  if (trendChart) { trendChart.destroy(); trendChart = null; }
+  if (trend.length === 0) { chartEmpty.hidden = false; return; }
+  chartEmpty.hidden = true;
+  const ctx = document.getElementById("trend-chart").getContext("2d");
+  trendChart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: trend.map(t => t.date),
+      datasets: [{
+        label: "Estimated 1RM (lbs)",
+        data: trend.map(t => t.estimated_1rm),
+        borderColor: "#2563eb",
+        backgroundColor: "rgba(37,99,235,.08)",
+        pointBackgroundColor: "#2563eb",
+        fill: true, tension: 0.3,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { x: { grid: { display: false } }, y: { beginAtZero: false } },
+    },
+  });
+}
+
+formLogSet.addEventListener("submit", async e => {
+  e.preventDefault();
+  hideMsg(logFeedback);
+  try {
+    await post(`/api/exercises/${currentExerciseId}/sets`, {
+      date:   inputDate.value,
+      weight: parseFloat(inputWeight.value),
+      reps:   parseInt(inputReps.value, 10),
+    });
+    showMsg(logFeedback, "Set logged!", false);
+    inputWeight.value = "";
+    inputReps.value   = "";
+    loadRecommendation(currentExerciseId);
+    loadHistory(currentExerciseId);
+    loadTrend(currentExerciseId);
+  } catch (err) {
+    showMsg(logFeedback, err.message, true);
+  }
+});
+
+// ── Shared day-exercise helpers ───────────────────────────────────────────────
 
 async function loadRecBadge(exerciseId) {
   const badge = document.getElementById(`rec-badge-${exerciseId}`);
@@ -232,7 +594,7 @@ async function loadRecBadge(exerciseId) {
   try {
     const rec = await get(`/api/exercises/${exerciseId}/recommendation`);
     badge.textContent = rec.weight === 0
-      ? "No history yet"
+      ? "No history yet — enter your starting weight"
       : `Next: ${rec.weight} lbs × ${rec.target_reps} reps`;
     if (rec.note) badge.title = rec.note;
   } catch {
@@ -240,38 +602,103 @@ async function loadRecBadge(exerciseId) {
   }
 }
 
-async function logSetInline(exerciseId, wInput, rInput, fb) {
-  hideMsg(fb);
-  const weight = parseFloat(wInput.value);
-  const reps   = parseInt(rInput.value, 10);
+// ── Add Day Modal ─────────────────────────────────────────────────────────────
 
-  if (!wInput.value || !rInput.value || isNaN(weight) || isNaN(reps)) {
-    showMsg(fb, "Enter weight and reps", true);
+document.getElementById("btn-add-day").addEventListener("click", () => {
+  formAddDay.reset();
+  hideMsg(addDayError);
+  modalAddDay.hidden = false;
+  inputDayName.focus();
+});
+document.getElementById("btn-cancel-add-day").addEventListener("click", () => { modalAddDay.hidden = true; });
+modalAddDay.addEventListener("click", e => { if (e.target === modalAddDay) modalAddDay.hidden = true; });
+
+formAddDay.addEventListener("submit", async e => {
+  e.preventDefault();
+  hideMsg(addDayError);
+  try {
+    await post("/api/workout-days", { name: inputDayName.value.trim() });
+    modalAddDay.hidden = true;
+    loadWorkoutDays();
+  } catch (err) {
+    showMsg(addDayError, err.message, true);
+  }
+});
+
+// ── Exercise Picker Modal ─────────────────────────────────────────────────────
+
+document.getElementById("btn-add-exercise-to-day").addEventListener("click", async () => {
+  formCustomEx.reset();
+  hideMsg(pickerError);
+  pickerSearch.value = "";
+  modalPicker.hidden = false;
+  if (allPresets.length === 0) allPresets = await get("/api/presets");
+  renderPickerList(allPresets);
+  pickerSearch.focus();
+});
+document.getElementById("btn-cancel-picker").addEventListener("click", () => { modalPicker.hidden = true; });
+modalPicker.addEventListener("click", e => { if (e.target === modalPicker) modalPicker.hidden = true; });
+
+pickerSearch.addEventListener("input", () => {
+  const q = pickerSearch.value.toLowerCase();
+  renderPickerList(allPresets.filter(p => p.name.toLowerCase().includes(q)));
+});
+
+function renderPickerList(exercises) {
+  const grouped = {};
+  exercises.forEach(ex => {
+    if (!grouped[ex.category]) grouped[ex.category] = [];
+    grouped[ex.category].push(ex);
+  });
+  pickerList.innerHTML = "";
+  if (exercises.length === 0) {
+    pickerList.innerHTML = `<p class="empty-state" style="padding:.75rem">No matches.</p>`;
     return;
   }
+  Object.entries(grouped).forEach(([cat, items]) => {
+    const header = document.createElement("p");
+    header.className = "picker-category";
+    header.textContent = cat;
+    pickerList.appendChild(header);
+    items.forEach(ex => {
+      const row = document.createElement("div");
+      row.className = "picker-row";
+      row.textContent = ex.name;
+      row.addEventListener("click", () => addPresetToDay(ex.name));
+      pickerList.appendChild(row);
+    });
+  });
+}
 
+async function addPresetToDay(name) {
+  hideMsg(pickerError);
   try {
-    await post(`/api/exercises/${exerciseId}/sets`, { date: today(), weight, reps });
-    showMsg(fb, "Logged!", false);
-    wInput.value = "";
-    rInput.value = "";
-    loadRecBadge(exerciseId);
+    await post(`/api/workout-days/${currentDayId}/exercises`, { name });
+    modalPicker.hidden = true;
+    loadDayExercises(currentDayId);
   } catch (err) {
-    showMsg(fb, err.message, true);
+    showMsg(pickerError, err.message, true);
   }
 }
 
-async function removeExerciseFromDay(dayId, exerciseId, cardEl) {
+formCustomEx.addEventListener("submit", async e => {
+  e.preventDefault();
+  hideMsg(pickerError);
+  const name = pickerCustomName.value.trim();
+  if (!name) { showMsg(pickerError, "Name is required", true); return; }
   try {
-    await del(`/api/workout-days/${dayId}/exercises/${exerciseId}`);
-    cardEl.remove();
-    if (dayExercisesList.querySelectorAll(".day-exercise-card").length === 0) {
-      dayExercisesList.innerHTML = `<p class="empty-state">No exercises yet. Add some below!</p>`;
-    }
+    await post(`/api/workout-days/${currentDayId}/exercises`, {
+      name,
+      rep_range_low:    parseInt(pickerCustomLow.value, 10),
+      rep_range_high:   parseInt(pickerCustomHigh.value, 10),
+      weight_increment: parseFloat(pickerCustomInc.value),
+    });
+    modalPicker.hidden = true;
+    loadDayExercises(currentDayId);
   } catch (err) {
-    alert(err.message);
+    showMsg(pickerError, err.message, true);
   }
-}
+});
 
 // ── Quick Setup Modal ─────────────────────────────────────────────────────────
 
@@ -286,7 +713,6 @@ function openSetupModal() {
 document.getElementById("btn-quick-setup").addEventListener("click", openSetupModal);
 document.getElementById("btn-cancel-setup").addEventListener("click", () => { modalSetup.hidden = true; });
 modalSetup.addEventListener("click", e => { if (e.target === modalSetup) modalSetup.hidden = true; });
-
 document.getElementById("btn-setup-back").addEventListener("click", () => {
   setupStep1.hidden = false;
   setupStep2.hidden = true;
@@ -310,18 +736,15 @@ function renderTemplates(templates) {
   templates.forEach(t => {
     const card = document.createElement("div");
     card.className = "template-card";
-
     const daysList = t.days.map(d =>
-      `<li><b>${esc(d.name)}:</b> ${d.exercises.slice(0, 3).map(esc).join(", ")}${d.exercises.length > 3 ? "…" : ""}</li>`
+      `<li><b>${esc(d.name)}:</b> ${d.exercises.slice(0,3).map(esc).join(", ")}${d.exercises.length > 3 ? "…" : ""}</li>`
     ).join("");
-
     card.innerHTML = `
       <strong class="template-name">${esc(t.name)}</strong>
       <p class="template-desc">${esc(t.description)}</p>
       <ul class="template-days">${daysList}</ul>
       <button class="btn-primary template-select-btn">Use This Split</button>
     `;
-
     card.querySelector(".template-select-btn").addEventListener("click", () => applySetup(t.id));
     templateGrid.appendChild(card);
   });
@@ -338,237 +761,7 @@ async function applySetup(templateId) {
   }
 }
 
-// ── Add Day Modal ─────────────────────────────────────────────────────────────
-
-document.getElementById("btn-add-day").addEventListener("click", () => {
-  formAddDay.reset();
-  hideMsg(addDayError);
-  modalAddDay.hidden = false;
-  inputDayName.focus();
-});
-
-document.getElementById("btn-cancel-add-day").addEventListener("click", () => { modalAddDay.hidden = true; });
-
-modalAddDay.addEventListener("click", e => { if (e.target === modalAddDay) modalAddDay.hidden = true; });
-
-formAddDay.addEventListener("submit", async e => {
-  e.preventDefault();
-  hideMsg(addDayError);
-  try {
-    await post("/api/workout-days", { name: inputDayName.value.trim() });
-    modalAddDay.hidden = true;
-    loadWorkoutDays();
-  } catch (err) {
-    showMsg(addDayError, err.message, true);
-  }
-});
-
-// ── Delete Day ────────────────────────────────────────────────────────────────
-
-document.getElementById("btn-delete-day").addEventListener("click", async () => {
-  if (!confirm(`Delete "${currentDay.name}"? This cannot be undone.`)) return;
-  try {
-    await del(`/api/workout-days/${currentDayId}`);
-    showSplit();
-  } catch (err) {
-    alert(err.message);
-  }
-});
-
-// ── Exercise Picker Modal ─────────────────────────────────────────────────────
-
-document.getElementById("btn-add-exercise-to-day").addEventListener("click", async () => {
-  formCustomEx.reset();
-  hideMsg(pickerError);
-  pickerSearch.value = "";
-  modalPicker.hidden = false;
-
-  if (allPresets.length === 0) {
-    allPresets = await get("/api/presets");
-  }
-  renderPickerList(allPresets);
-  pickerSearch.focus();
-});
-
-document.getElementById("btn-cancel-picker").addEventListener("click", () => { modalPicker.hidden = true; });
-
-modalPicker.addEventListener("click", e => { if (e.target === modalPicker) modalPicker.hidden = true; });
-
-pickerSearch.addEventListener("input", () => {
-  const q = pickerSearch.value.toLowerCase();
-  renderPickerList(allPresets.filter(p => p.name.toLowerCase().includes(q)));
-});
-
-function renderPickerList(exercises) {
-  const grouped = {};
-  exercises.forEach(ex => {
-    if (!grouped[ex.category]) grouped[ex.category] = [];
-    grouped[ex.category].push(ex);
-  });
-
-  pickerList.innerHTML = "";
-  Object.entries(grouped).forEach(([cat, items]) => {
-    const header = document.createElement("p");
-    header.className  = "picker-category";
-    header.textContent = cat;
-    pickerList.appendChild(header);
-
-    items.forEach(ex => {
-      const row = document.createElement("div");
-      row.className  = "picker-row";
-      row.textContent = ex.name;
-      row.addEventListener("click", () => addPresetToDay(ex.name));
-      pickerList.appendChild(row);
-    });
-  });
-
-  if (exercises.length === 0) {
-    pickerList.innerHTML = `<p class="empty-state" style="padding:.75rem">No matches.</p>`;
-  }
-}
-
-async function addPresetToDay(name) {
-  hideMsg(pickerError);
-  try {
-    await post(`/api/workout-days/${currentDayId}/exercises`, { name });
-    modalPicker.hidden = true;
-    loadDayExercises(currentDayId);
-  } catch (err) {
-    showMsg(pickerError, err.message, true);
-  }
-}
-
-formCustomEx.addEventListener("submit", async e => {
-  e.preventDefault();
-  hideMsg(pickerError);
-  const name = pickerCustomName.value.trim();
-  if (!name) { showMsg(pickerError, "Name is required", true); return; }
-  try {
-    await post(`/api/workout-days/${currentDayId}/exercises`, {
-      name,
-      rep_range_low:    parseInt(pickerCustomLow.value,  10),
-      rep_range_high:   parseInt(pickerCustomHigh.value, 10),
-      weight_increment: parseFloat(pickerCustomInc.value),
-    });
-    modalPicker.hidden = true;
-    loadDayExercises(currentDayId);
-  } catch (err) {
-    showMsg(pickerError, err.message, true);
-  }
-});
-
-// ── Detail view loaders ───────────────────────────────────────────────────────
-
-async function loadRecommendation(exerciseId) {
-  const rec = await get(`/api/exercises/${exerciseId}/recommendation`);
-  recWeight.textContent = rec.weight === 0 ? "—" : rec.weight;
-  recReps.textContent   = rec.target_reps;
-  recNote.textContent   = rec.note;
-}
-
-async function loadHistory(exerciseId) {
-  const history = await get(`/api/exercises/${exerciseId}/history`);
-
-  if (history.length === 0) {
-    historyContainer.innerHTML = `<p class="empty-state">No sets logged yet.</p>`;
-    return;
-  }
-
-  const byDate = {};
-  [...history].reverse().forEach(s => {
-    if (!byDate[s.date]) byDate[s.date] = [];
-    byDate[s.date].push(s);
-  });
-
-  let html = `<table><thead><tr><th>Date</th><th>Weight (lbs)</th><th>Reps</th><th>Est. 1RM</th></tr></thead><tbody>`;
-  Object.entries(byDate).forEach(([date, sets]) => {
-    sets.forEach((s, i) => {
-      const orm = (s.weight * (1 + s.reps / 30)).toFixed(1);
-      html += `<tr>
-        <td>${i === 0 ? esc(date) : ""}</td>
-        <td>${s.weight}</td>
-        <td>${s.reps}</td>
-        <td>${orm}</td>
-      </tr>`;
-    });
-  });
-  html += `</tbody></table>`;
-  historyContainer.innerHTML = html;
-}
-
-async function loadTrend(exerciseId) {
-  const trend = await get(`/api/exercises/${exerciseId}/trend`);
-
-  if (trendChart) { trendChart.destroy(); trendChart = null; }
-
-  if (trend.length === 0) {
-    chartEmpty.hidden = false;
-    return;
-  }
-  chartEmpty.hidden = true;
-
-  const ctx = document.getElementById("trend-chart").getContext("2d");
-  trendChart = new Chart(ctx, {
-    type: "line",
-    data: {
-      labels: trend.map(t => t.date),
-      datasets: [{
-        label: "Estimated 1RM (lbs)",
-        data: trend.map(t => t.estimated_1rm),
-        borderColor: "#2563eb",
-        backgroundColor: "rgba(37,99,235,.08)",
-        pointBackgroundColor: "#2563eb",
-        fill: true,
-        tension: 0.3,
-      }],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { grid: { display: false } },
-        y: { beginAtZero: false },
-      },
-    },
-  });
-}
-
-// ── Log Set form (detail view) ────────────────────────────────────────────────
-
-formLogSet.addEventListener("submit", async e => {
-  e.preventDefault();
-  hideMsg(logFeedback);
-
-  try {
-    await post(`/api/exercises/${currentExerciseId}/sets`, {
-      date:   inputDate.value,
-      weight: parseFloat(inputWeight.value),
-      reps:   parseInt(inputReps.value, 10),
-    });
-    showMsg(logFeedback, "Set logged!", false);
-    inputWeight.value = "";
-    inputReps.value   = "";
-    loadRecommendation(currentExerciseId);
-    loadHistory(currentExerciseId);
-    loadTrend(currentExerciseId);
-  } catch (err) {
-    showMsg(logFeedback, err.message, true);
-  }
-});
-
-// ── Navigation ────────────────────────────────────────────────────────────────
-
-document.getElementById("btn-back").addEventListener("click", () => {
-  if (currentDay) showDay(currentDay);
-  else showSplit();
-});
-
-document.getElementById("btn-back-to-split").addEventListener("click", showSplit);
-
-const headerTitle = document.getElementById("header-title");
-headerTitle.addEventListener("click",   showSplit);
-headerTitle.addEventListener("keydown", e => { if (e.key === "Enter") showSplit(); });
+// ── Global keyboard handler ───────────────────────────────────────────────────
 
 document.addEventListener("keydown", e => {
   if (e.key === "Escape") {
@@ -578,6 +771,12 @@ document.addEventListener("keydown", e => {
   }
 });
 
+// ── Header title ──────────────────────────────────────────────────────────────
+
+const headerTitle = document.getElementById("header-title");
+headerTitle.addEventListener("click",   showCalendar);
+headerTitle.addEventListener("keydown", e => { if (e.key === "Enter") showCalendar(); });
+
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
 function today() {
@@ -586,10 +785,8 @@ function today() {
 
 function esc(str) {
   return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 function showMsg(el, msg, isError) {
@@ -602,4 +799,4 @@ function hideMsg(el) { el.hidden = true; }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
-showSplit();
+showCalendar();

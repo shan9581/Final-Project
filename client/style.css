@@ -188,6 +188,111 @@ tbody tr:hover td { background: var(--bg); }
 .empty-state { color: var(--muted); font-size: .9rem; padding: .5rem 0; }
 h2 { font-size: 1.5rem; }
 
+/* ── Calendar ────────────────────────────────────────────────────────────────── */
+.cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.cal-month-label {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.cal-nav-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: .35rem .85rem;
+  font-size: 1.1rem;
+  cursor: pointer;
+  color: var(--text);
+  line-height: 1;
+}
+.cal-nav-btn:hover { background: var(--bg); }
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.cal-header-cell {
+  text-align: center;
+  font-size: .72rem;
+  font-weight: 700;
+  color: var(--muted);
+  padding: .4rem 0;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.cal-cell {
+  aspect-ratio: 1;
+  min-height: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  transition: background .1s, border-color .1s;
+}
+.cal-cell:hover { background: #eff6ff; border-color: var(--accent); }
+.cal-cell.cal-empty { background: transparent; border-color: transparent; cursor: default; pointer-events: none; }
+.cal-cell.cal-today { border-color: var(--accent); background: #eff6ff; }
+.cal-cell.cal-today .cal-day-num { color: var(--accent); font-weight: 700; }
+
+.cal-day-num { font-size: .9rem; line-height: 1; }
+
+.cal-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* ── Session view ────────────────────────────────────────────────────────────── */
+.session-log-header {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin-bottom: 1rem;
+}
+
+.btn-sm {
+  padding: .3rem .65rem;
+  font-size: .8rem;
+}
+
+.logged-sets-today {
+  margin-top: .5rem;
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+}
+
+.logged-set-row {
+  font-size: .82rem;
+  color: var(--success);
+  padding: .1rem 0;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  padding: 0;
+  font-size: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
 /* ── View header row ─────────────────────────────────────────────────────────── */
 .view-header {
   display: flex;

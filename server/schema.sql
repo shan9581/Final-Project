@@ -23,6 +23,13 @@ CREATE TABLE IF NOT EXISTS workout_days (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS workout_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL UNIQUE,
+    workout_day_id INTEGER NOT NULL REFERENCES workout_days(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS workout_day_exercises (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     workout_day_id INTEGER NOT NULL REFERENCES workout_days(id) ON DELETE CASCADE,

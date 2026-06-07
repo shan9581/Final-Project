@@ -140,6 +140,45 @@ def get_or_create_exercise(db, name, rep_range_low=5, rep_range_high=8, weight_i
     return insert_exercise(db, name, rep_range_low, rep_range_high, weight_increment)
 
 
+# ── Sessions & Calendar ───────────────────────────────────────────────────────
+
+def get_session(db, date):
+    row = db.execute(
+        "SELECT s.id, s.date, s.workout_day_id, w.name AS workout_day_name "
+        "FROM workout_sessions s JOIN workout_days w ON w.id = s.workout_day_id "
+        "WHERE s.date = ?",
+        (date,),
+    ).fetchone()
+    return _row_to_dict(row)
+
+
+def insert_session(db, date, workout_day_id):
+    db.execute(
+        "INSERT OR REPLACE INTO workout_sessions (date, workout_day_id) VALUES (?, ?)",
+        (date, workout_day_id),
+    )
+    db.commit()
+    return get_session(db, date)
+
+
+def get_logged_dates_in_month(db, year, month):
+    prefix = f"{year:04d}-{month:02d}-"
+    rows = db.execute(
+        "SELECT DISTINCT date FROM sets WHERE date LIKE ? ORDER BY date",
+        (f"{prefix}%",),
+    ).fetchall()
+    return [r["date"] for r in rows]
+
+
+def get_sets_on_date(db, date):
+    rows = db.execute(
+        "SELECT id, exercise_id, weight, reps, logged_at FROM sets "
+        "WHERE date = ? ORDER BY exercise_id, logged_at",
+        (date,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
 def update_exercise_rep_ranges(db, exercise_id, rep_range_low, rep_range_high, weight_increment):
     db.execute(
         "UPDATE exercises SET rep_range_low=?, rep_range_high=?, weight_increment=? WHERE id=?",

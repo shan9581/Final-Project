@@ -27,8 +27,9 @@ A workout tracker web application built as a learning project. The goal is to un
 - **Quick Setup wizard** — recommends a split template (Push/Pull/Legs, Upper/Lower, Full Body, Bro Split) and sets rep ranges based on the user's goal (Strength or Hypertrophy).
 - **Double progression engine** — add one rep per session until hitting the top of the rep range, then add weight and reset reps. Lives in pure Python with no DB calls.
 - **Strength trend** — each session is reduced to an estimated 1RM using the Epley formula (`weight × (1 + reps/30)`), graphed over time per exercise.
-- **CSV import** — import historical workout data via file upload or paste. Unknown exercises are created automatically.
+- **CSV import** — import historical workout data via file upload or paste. Unknown exercises are created automatically. Import auto-creates an "Imported" workout day and sessions for each date.
 - **Reset** — header button wipes all data from every table for a clean restart.
+- **Stats page** — dedicated statistics view with four sections: Strength Progression (PRs, 1RM trends, recent PRs), Volume (weekly volume, working sets, muscle group breakdown), Consistency (streaks, workouts/week, GitHub-style heatmap), and Diagnostics (stalled lifts, muscle balance, exercise frequency). All computation lives in `server/stats.py` as pure functions.
 
 ---
 
@@ -65,10 +66,11 @@ Final-Project/
 │   ├── db.py                  ← SQLite helpers — no business logic
 │   ├── recommendation.py      ← Pure functions: recommend(), epley_1rm(), build_trend()
 │   ├── presets.py             ← Static data: PRESET_EXERCISES, SPLIT_TEMPLATES, REP_RANGES
+│   ├── stats.py               ← Pure stat functions (no DB/Flask): PRs, volume, streaks, etc.
 │   └── schema.sql             ← CREATE TABLE statements (run on every DB connection)
 │
 ├── client/
-│   ├── index.html             ← Views: calendar, session, split, day, detail + modals
+│   ├── index.html             ← Views: calendar, session, split, day, detail, stats + modals
 │   ├── style.css
 │   └── app.js                 ← All frontend logic; SPLIT_TEMPLATES duplicated here for speed
 │
@@ -110,7 +112,11 @@ Calendar (home / view-calendar)
               └── Click exercise name  →  Exercise Detail (view-detail)
                     └── Back  →  Session View
 
-Header: "Import CSV" | "My Split" | "✕ Reset"
+Header: "Import CSV" | "Stats" | "My Split" | "✕ Reset"
+
+Stats (view-stats)
+  └── Strength Progression, Volume, Consistency, Diagnostics sections
+  └── Back  →  Calendar
 
 My Split (view-split)
   └── Click a day card  →  Day View (view-day)  [structure only, no logging]
@@ -164,6 +170,22 @@ My Split (view-split)
 | GET | `/api/sessions/<date>/sets` | All sets logged on a date |
 | GET | `/api/calendar/<year>/<month>` | List of dates with logged sets in that month |
 
+### Stats
+
+| Method | URL | Description |
+|---|---|---|
+| GET | `/api/stats` | All statistics in one call — see structure below |
+
+`/api/stats` response shape:
+```json
+{
+  "strength":    { "prs": {}, "trends": {}, "recent_prs": [] },
+  "volume":      { "weekly": [], "working_sets": [], "category_totals": {}, "uncategorized_count": 0 },
+  "consistency": { "streaks": {}, "workouts_per_week": [], "heatmap": [] },
+  "diagnostics": { "stalled": [], "balance": {}, "frequency": [] }
+}
+```
+
 ### Utilities
 
 | Method | URL | Description |
@@ -196,8 +218,34 @@ Schema is applied via `db.executescript(schema.sql)` on every new connection, so
 - `upsert_set(db, exercise_id, date, weight, reps)` — deletes all sets for that exercise+date, inserts one new row. Used by the auto-save PUT endpoint so editing replaces rather than accumulates.
 - `reset_all_data(db)` — deletes all rows from sets, workout_sessions, workout_day_exercises, workout_days, exercises in dependency order.
 - `get_or_create_exercise(db, name, ...)` — looks up by name, inserts if missing. Used by import and setup.
+- `get_or_create_imported_day(db)` — returns (or creates) the shared "Imported" workout day used by CSV import.
 - `insert_session / get_session` — one session (workout type) per date; `INSERT OR REPLACE` semantics.
 - `get_logged_dates_in_month(db, year, month)` — returns list of YYYY-MM-DD strings that have sets, used to draw calendar dots.
+
+---
+
+## server/stats.py
+
+Pure functions — no DB calls, no Flask imports. Called by `GET /api/stats`.
+
+| Function | Description |
+|---|---|
+| `compute_prs(history)` | Best weight, est. 1RM, and best reps per exercise |
+| `compute_1rm_trend(history)` | Best Epley 1RM per calendar date, sorted |
+| `compute_recent_prs(exercises_history, days=28)` | PRs whose all-time-best date is within last N days |
+| `compute_weekly_volume(all_sets, num_weeks=12)` | Total weight×reps per week |
+| `compute_working_sets_per_week(all_sets, num_weeks=12)` | Set count per week |
+| `compute_category_totals(all_sets_with_category, num_weeks=12)` | Volume per muscle group; counts uncategorized separately |
+| `compute_streaks(session_dates)` | Current and longest consecutive-day streaks |
+| `compute_workouts_per_week(session_dates, num_weeks=12)` | Session count per week |
+| `compute_heatmap(session_dates, num_weeks=52)` | One `{date, count}` per day for last 52 weeks |
+| `compute_stalled_lifts(exercises_history, weeks=4)` | Exercises with <1% 1RM improvement in last N weeks |
+| `compute_muscle_balance(all_sets_with_category, num_weeks=4)` | Volume share (%) per category |
+| `compute_exercise_frequency(exercises_history, num_weeks=4)` | Sessions/week per exercise |
+
+**Rule:** These functions must never make database calls or have side effects. Same constraint as `recommendation.py`.
+
+**Category mapping:** Exercise names are matched against `PRESET_EXERCISES` in `presets.py` to assign Push/Pull/Legs/Core. Exercises not in the preset list have `category = None` and appear as "Other" in the UI. To get full category coverage, use exercise names that match the preset library.
 
 ---
 
@@ -269,6 +317,7 @@ All 32 tests must pass before committing.
 7. **Always restart the Flask server** after Python file changes — the dev auto-reloader does not always catch everything.
 8. **Logging only through the calendar** — My Split (view-split / view-day) is structure management only. Never add log forms there.
 9. **Auto-save uses upsert** — the session log uses `PUT /api/exercises/<id>/sets/<date>` (one set per exercise per date). Import uses `POST` (multiple sets allowed). Don't conflate the two.
+10. **Keep `stats.py` pure** — same rule as `recommendation.py`. No DB imports, no Flask, no side effects. All data is passed in as plain Python lists/dicts.
 
 ---
 
@@ -293,3 +342,4 @@ All 32 tests must pass before committing.
 | Auto-save inputs with pre-fill on revisit | Done |
 | CSV import (file upload or paste) | Done |
 | Reset button (clear all data) | Done |
+| Stats page (strength, volume, consistency, diagnostics) | Done |

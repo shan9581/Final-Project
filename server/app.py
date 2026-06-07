@@ -5,7 +5,7 @@ from server.db import (
     get_db, get_exercises, get_exercise, insert_exercise, get_history, insert_set, upsert_set,
     get_workout_days, get_workout_day, insert_workout_day, delete_workout_day,
     get_day_exercises, add_exercise_to_day, remove_exercise_from_day, get_or_create_exercise,
-    update_exercise_rep_ranges, reset_all_data,
+    update_exercise_rep_ranges, reset_all_data, get_or_create_imported_day,
     get_session, insert_session, get_logged_dates_in_month, get_sets_on_date,
 )
 from server.recommendation import recommend, build_trend
@@ -283,14 +283,26 @@ def create_app(config=None):
         db = get_conn()
         imported = 0
         errors = []
+        dates_to_exercises = {}  # date -> set of exercise ids
+
         for i, row in enumerate(reader, start=2):
             try:
                 row = {k.strip().lower(): v.strip() for k, v in row.items()}
                 ex = get_or_create_exercise(db, name=row["exercise"])
                 insert_set(db, ex["id"], row["date"], float(row["weight"]), int(row["reps"]))
                 imported += 1
+                dates_to_exercises.setdefault(row["date"], set()).add(ex["id"])
             except Exception as e:
                 errors.append(f"Row {i}: {e}")
+
+        # Create an "Imported" workout day and wire up sessions for each date
+        if dates_to_exercises:
+            imported_day = get_or_create_imported_day(db)
+            for date_str, ex_ids in dates_to_exercises.items():
+                for ex_id in ex_ids:
+                    add_exercise_to_day(db, imported_day["id"], ex_id)
+                if get_session(db, date_str) is None:
+                    insert_session(db, date_str, imported_day["id"])
 
         return jsonify({"imported": imported, "errors": errors})
 

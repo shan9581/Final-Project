@@ -197,6 +197,15 @@ def get_sets_on_date(db, date):
     return [dict(r) for r in rows]
 
 
+def get_or_create_imported_day(db):
+    row = db.execute(
+        "SELECT id, name, position, created_at FROM workout_days WHERE name = 'Imported'"
+    ).fetchone()
+    if row:
+        return dict(row)
+    return insert_workout_day(db, name="Imported")
+
+
 def reset_all_data(db):
     """Delete every row from every table — full reset."""
     db.execute("DELETE FROM sets")

@@ -154,6 +154,42 @@ input:focus { outline: 2px solid var(--accent); border-color: transparent; }
 .feedback { font-size: .85rem; color: var(--success); }
 .error    { font-size: .85rem; color: var(--danger); }
 
+.import-hint {
+  font-size: .8rem;
+  color: var(--muted);
+  margin-bottom: .75rem;
+}
+.import-hint code { background: var(--bg); padding: .1rem .3rem; border-radius: 4px; }
+
+.file-upload-label {
+  display: inline-block;
+  padding: .45rem .9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: .88rem;
+  cursor: pointer;
+  margin-bottom: .75rem;
+  transition: border-color .15s;
+}
+.file-upload-label:hover { border-color: var(--accent); color: var(--accent); }
+.file-upload-label input[type="file"] { display: none; }
+
+.import-textarea {
+  width: 100%;
+  height: 140px;
+  resize: vertical;
+  font-family: monospace;
+  font-size: .82rem;
+  padding: .6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  margin-bottom: .75rem;
+}
+.import-textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+
+#import-result { margin-top: .75rem; white-space: pre-wrap; }
+
 /* ── Recommendation Panel ─────────────────────────────────────────────────── */
 .recommendation-card { display: flex; flex-direction: column; }
 

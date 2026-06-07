@@ -13,6 +13,7 @@
   <header>
     <span id="header-title" class="header-title" role="button" tabindex="0">Workout Tracker</span>
     <div class="header-right">
+      <button id="btn-import" class="btn-secondary">Import CSV</button>
       <button id="btn-my-split" class="btn-secondary">My Split</button>
       <button id="btn-reset" class="btn-reset" title="Clear all data">&#10006; Reset</button>
     </div>
@@ -160,6 +161,27 @@
         </div>
         <p id="picker-error" class="error" hidden></p>
       </form>
+    </div>
+  </div>
+
+  <!-- ── Import CSV Modal ─────────────────────────────────────────────────── -->
+  <div id="modal-import" class="modal-overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true">
+      <h2>Import Workout Data</h2>
+      <p class="setup-subtitle">Upload a <code>.csv</code> file or paste your data below.</p>
+      <p class="import-hint">Required columns: <code>date, exercise, weight, reps</code></p>
+      <label class="file-upload-label">
+        <input type="file" id="import-file-input" accept=".csv" />
+        Choose CSV file
+      </label>
+      <p class="picker-custom-label">Or paste CSV directly:</p>
+      <textarea id="import-textarea" class="import-textarea"
+        placeholder="date,exercise,weight,reps&#10;2025-01-15,Bench Press,135,8&#10;2025-01-15,Bench Press,145,6"></textarea>
+      <div class="modal-actions">
+        <button type="button" id="btn-cancel-import" class="btn-secondary">Cancel</button>
+        <button type="button" id="btn-do-import" class="btn-primary">Import</button>
+      </div>
+      <p id="import-result" hidden></p>
     </div>
   </div>
 

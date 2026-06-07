@@ -265,6 +265,35 @@ def create_app(config=None):
         reset_all_data(get_conn())
         return "", 204
 
+    @app.route("/api/import", methods=["POST"])
+    def import_csv():
+        import csv, io
+        data = request.get_json(silent=True) or {}
+        csv_text = data.get("csv", "").strip()
+        if not csv_text:
+            return jsonify({"error": "csv field is required"}), 400
+
+        reader = csv.DictReader(io.StringIO(csv_text))
+        fieldnames = [f.strip().lower() for f in (reader.fieldnames or [])]
+        required = {"date", "exercise", "weight", "reps"}
+        if not required.issubset(set(fieldnames)):
+            missing = required - set(fieldnames)
+            return jsonify({"error": f"Missing columns: {', '.join(sorted(missing))}"}), 400
+
+        db = get_conn()
+        imported = 0
+        errors = []
+        for i, row in enumerate(reader, start=2):
+            try:
+                row = {k.strip().lower(): v.strip() for k, v in row.items()}
+                ex = get_or_create_exercise(db, name=row["exercise"])
+                insert_set(db, ex["id"], row["date"], float(row["weight"]), int(row["reps"]))
+                imported += 1
+            except Exception as e:
+                errors.append(f"Row {i}: {e}")
+
+        return jsonify({"imported": imported, "errors": errors})
+
     return app
 
 

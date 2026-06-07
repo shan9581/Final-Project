@@ -763,6 +763,58 @@ function showMsg(el, msg, isError) {
 
 function hideMsg(el) { el.hidden = true; }
 
+// ── Import CSV ────────────────────────────────────────────────────────────────
+
+const modalImport    = document.getElementById("modal-import");
+const importTextarea = document.getElementById("import-textarea");
+const importFileInput = document.getElementById("import-file-input");
+const importResult   = document.getElementById("import-result");
+
+document.getElementById("btn-import").addEventListener("click", () => {
+  importTextarea.value = "";
+  importFileInput.value = "";
+  importResult.hidden = true;
+  modalImport.hidden = false;
+});
+document.getElementById("btn-cancel-import").addEventListener("click", () => { modalImport.hidden = true; });
+modalImport.addEventListener("click", e => { if (e.target === modalImport) modalImport.hidden = true; });
+
+importFileInput.addEventListener("change", () => {
+  const file = importFileInput.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => { importTextarea.value = e.target.result; };
+  reader.readAsText(file);
+});
+
+document.getElementById("btn-do-import").addEventListener("click", async () => {
+  const csv = importTextarea.value.trim();
+  if (!csv) { alert("Paste or upload a CSV file first."); return; }
+  importResult.hidden = true;
+  try {
+    const res = await post("/api/import", { csv });
+    const errText = res.errors.length
+      ? `\n${res.errors.slice(0, 5).join("\n")}${res.errors.length > 5 ? `\n…and ${res.errors.length - 5} more` : ""}`
+      : "";
+    importResult.textContent = `Imported ${res.imported} sets.${errText}`;
+    importResult.className   = res.errors.length ? "error" : "feedback";
+    importResult.hidden      = false;
+    if (res.imported > 0) {
+      loggedDates = new Set();
+      renderCalendarGrid();
+      try {
+        const dates = await get(`/api/calendar/${calYear}/${calMonth + 1}`);
+        loggedDates = new Set(dates);
+        renderCalendarGrid();
+      } catch { /* dots won't show but import succeeded */ }
+    }
+  } catch (err) {
+    importResult.textContent = err.message;
+    importResult.className   = "error";
+    importResult.hidden      = false;
+  }
+});
+
 // ── Reset ─────────────────────────────────────────────────────────────────────
 
 document.getElementById("btn-reset").addEventListener("click", async () => {

@@ -160,9 +160,12 @@ function hideAllViews() {
 async function showCalendar() {
   hideAllViews();
   viewCalendar.hidden = false;
-  const dates = await get(`/api/calendar/${calYear}/${calMonth + 1}`);
-  loggedDates = new Set(dates);
-  renderCalendarGrid();
+  renderCalendarGrid();           // draw grid immediately — no waiting
+  try {
+    const dates = await get(`/api/calendar/${calYear}/${calMonth + 1}`);
+    loggedDates = new Set(dates);
+    renderCalendarGrid();         // re-draw with workout dots
+  } catch { /* dots won't show, but calendar is still usable */ }
 }
 
 function renderCalendarGrid() {

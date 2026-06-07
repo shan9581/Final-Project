@@ -1,8 +1,14 @@
 """Flask application — REST API + static client serving."""
 import os
 from flask import Flask, jsonify, request, send_from_directory, g
-from server.db import get_db, get_exercises, get_exercise, insert_exercise, get_history, insert_set
+from server.db import (
+    get_db, get_exercises, get_exercise, insert_exercise, get_history, insert_set,
+    get_workout_days, get_workout_day, insert_workout_day, delete_workout_day,
+    get_day_exercises, add_exercise_to_day, remove_exercise_from_day, get_or_create_exercise,
+    update_exercise_rep_ranges,
+)
 from server.recommendation import recommend, build_trend
+from server.presets import PRESET_EXERCISES, SPLIT_TEMPLATES, REP_RANGES
 
 CLIENT_DIR = os.path.join(os.path.dirname(__file__), "..", "client")
 
@@ -117,6 +123,95 @@ def create_app(config=None):
             return jsonify({"error": "exercise not found"}), 404
         history = get_history(get_conn(), exercise_id)
         return jsonify(build_trend(history))
+
+    # ── Presets & Templates ───────────────────────────────────────────────────
+
+    @app.route("/api/presets", methods=["GET"])
+    def list_presets():
+        return jsonify(PRESET_EXERCISES)
+
+    @app.route("/api/split-templates", methods=["GET"])
+    def list_split_templates():
+        return jsonify(SPLIT_TEMPLATES)
+
+    @app.route("/api/setup", methods=["POST"])
+    def setup_split():
+        data = request.get_json(silent=True) or {}
+        goal = data.get("goal")
+        template_id = data.get("template")
+
+        if goal not in REP_RANGES:
+            return jsonify({"error": "goal must be 'strength' or 'hypertrophy'"}), 400
+
+        template = next((t for t in SPLIT_TEMPLATES if t["id"] == template_id), None)
+        if template is None:
+            return jsonify({"error": "unknown template"}), 400
+
+        rep_config = REP_RANGES[goal]
+        db = get_conn()
+        created = []
+        for day_def in template["days"]:
+            day = insert_workout_day(db, name=day_def["name"])
+            for ex_name in day_def["exercises"]:
+                ex = get_or_create_exercise(db, name=ex_name, **rep_config)
+                update_exercise_rep_ranges(db, ex["id"], **rep_config)
+                add_exercise_to_day(db, day["id"], ex["id"])
+            created.append(day)
+        return jsonify(created), 201
+
+    # ── Workout Days ──────────────────────────────────────────────────────────
+
+    @app.route("/api/workout-days", methods=["GET"])
+    def list_workout_days():
+        return jsonify(get_workout_days(get_conn()))
+
+    @app.route("/api/workout-days", methods=["POST"])
+    def create_workout_day():
+        data = request.get_json(silent=True) or {}
+        if not data.get("name"):
+            return jsonify({"error": "name is required"}), 400
+        day = insert_workout_day(get_conn(), name=data["name"])
+        return jsonify(day), 201
+
+    @app.route("/api/workout-days/<int:day_id>", methods=["DELETE"])
+    def delete_day(day_id):
+        if get_workout_day(get_conn(), day_id) is None:
+            return jsonify({"error": "workout day not found"}), 404
+        delete_workout_day(get_conn(), day_id)
+        return "", 204
+
+    @app.route("/api/workout-days/<int:day_id>/exercises", methods=["GET"])
+    def list_day_exercises(day_id):
+        if get_workout_day(get_conn(), day_id) is None:
+            return jsonify({"error": "workout day not found"}), 404
+        return jsonify(get_day_exercises(get_conn(), day_id))
+
+    @app.route("/api/workout-days/<int:day_id>/exercises", methods=["POST"])
+    def add_day_exercise(day_id):
+        if get_workout_day(get_conn(), day_id) is None:
+            return jsonify({"error": "workout day not found"}), 404
+        data = request.get_json(silent=True) or {}
+        if "exercise_id" in data:
+            exercise = get_exercise(get_conn(), int(data["exercise_id"]))
+            if exercise is None:
+                return jsonify({"error": "exercise not found"}), 404
+        elif "name" in data:
+            exercise = get_or_create_exercise(
+                get_conn(),
+                name=data["name"],
+                rep_range_low=int(data.get("rep_range_low", 5)),
+                rep_range_high=int(data.get("rep_range_high", 8)),
+                weight_increment=float(data.get("weight_increment", 5.0)),
+            )
+        else:
+            return jsonify({"error": "exercise_id or name is required"}), 400
+        add_exercise_to_day(get_conn(), day_id, exercise["id"])
+        return jsonify(exercise), 201
+
+    @app.route("/api/workout-days/<int:day_id>/exercises/<int:exercise_id>", methods=["DELETE"])
+    def remove_day_exercise(day_id, exercise_id):
+        remove_exercise_from_day(get_conn(), day_id, exercise_id)
+        return "", 204
 
     return app
 

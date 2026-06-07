@@ -12,18 +12,35 @@
   <!-- ── Header ─────────────────────────────────────────────────────────── -->
   <header>
     <span id="header-title" class="header-title" role="button" tabindex="0">Workout Tracker</span>
-    <button id="btn-add-exercise" class="btn-primary">+ Add Exercise</button>
   </header>
 
-  <!-- ── Exercise List View ──────────────────────────────────────────────── -->
-  <main id="view-list" class="view">
-    <p id="empty-state" class="empty-state" hidden>
-      No exercises yet. Add one to get started!
+  <!-- ── Split View (home) ──────────────────────────────────────────────── -->
+  <main id="view-split" class="view">
+    <div class="view-header">
+      <h2>My Split</h2>
+      <div class="header-actions">
+        <button id="btn-quick-setup" class="btn-secondary">Quick Setup</button>
+        <button id="btn-add-day" class="btn-primary">+ Add Day</button>
+      </div>
+    </div>
+    <p id="split-empty" class="empty-state" hidden>
+      No workout days yet. Use Quick Setup for a recommended split, or add a day manually.
     </p>
-    <div id="exercise-grid" class="exercise-grid"></div>
+    <div id="day-grid" class="exercise-grid"></div>
   </main>
 
-  <!-- ── Exercise Detail View ────────────────────────────────────────────── -->
+  <!-- ── Day View ───────────────────────────────────────────────────────── -->
+  <main id="view-day" class="view" hidden>
+    <button id="btn-back-to-split" class="btn-back">← Back to Split</button>
+    <div class="day-header">
+      <h2 id="day-title"></h2>
+      <button id="btn-delete-day" class="btn-danger-sm">Delete Day</button>
+    </div>
+    <div id="day-exercises-list"></div>
+    <button id="btn-add-exercise-to-day" class="btn-secondary btn-add-ex">+ Add Exercise</button>
+  </main>
+
+  <!-- ── Exercise Detail View ───────────────────────────────────────────── -->
   <main id="view-detail" class="view" hidden>
     <button id="btn-back" class="btn-back">← Back</button>
     <h2 id="detail-title"></h2>
@@ -85,31 +102,87 @@
 
   </main>
 
-  <!-- ── Add Exercise Modal ──────────────────────────────────────────────── -->
-  <div id="modal-overlay" class="modal-overlay" hidden>
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-heading">
-      <h2 id="modal-heading">New Exercise</h2>
-      <form id="form-add-exercise">
-        <label>Exercise name
-          <input type="text" id="input-name" placeholder="e.g. Bench Press" required />
+  <!-- ── Add Day Modal ──────────────────────────────────────────────────── -->
+  <div id="modal-add-day" class="modal-overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="add-day-heading">
+      <h2 id="add-day-heading">New Workout Day</h2>
+      <form id="form-add-day">
+        <label>Day name
+          <input type="text" id="input-day-name" placeholder="e.g. Push Day" required />
+        </label>
+        <div class="modal-actions">
+          <button type="button" id="btn-cancel-add-day" class="btn-secondary">Cancel</button>
+          <button type="submit" class="btn-primary">Create</button>
+        </div>
+        <p id="add-day-error" class="error" hidden></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Exercise Picker Modal ──────────────────────────────────────────── -->
+  <div id="modal-picker" class="modal-overlay" hidden>
+    <div class="modal picker-modal" role="dialog" aria-modal="true" aria-labelledby="picker-heading">
+      <h2 id="picker-heading">Add Exercise</h2>
+      <input type="text" id="picker-search" class="picker-search" placeholder="Search exercises..." />
+      <div id="picker-preset-list" class="picker-list"></div>
+      <hr class="picker-divider" />
+      <p class="picker-custom-label">Or enter a custom exercise:</p>
+      <form id="form-custom-exercise">
+        <label>Name
+          <input type="text" id="picker-custom-name" placeholder="e.g. Cable Fly" />
         </label>
         <div class="row-2">
           <label>Min reps
-            <input type="number" id="input-low" value="5" min="1" required />
+            <input type="number" id="picker-custom-low" value="5" min="1" />
           </label>
           <label>Max reps
-            <input type="number" id="input-high" value="8" min="1" required />
+            <input type="number" id="picker-custom-high" value="8" min="1" />
           </label>
         </div>
         <label>Weight increment (lbs)
-          <input type="number" id="input-increment" value="5" min="0.5" step="0.5" required />
+          <input type="number" id="picker-custom-increment" value="5" min="0.5" step="0.5" />
         </label>
         <div class="modal-actions">
-          <button type="button" id="btn-cancel-modal" class="btn-secondary">Cancel</button>
-          <button type="submit" class="btn-primary">Create</button>
+          <button type="button" id="btn-cancel-picker" class="btn-secondary">Cancel</button>
+          <button type="submit" class="btn-primary">Add Custom</button>
         </div>
-        <p id="modal-error" class="error" hidden></p>
+        <p id="picker-error" class="error" hidden></p>
       </form>
+    </div>
+  </div>
+
+  <!-- ── Quick Setup Modal ──────────────────────────────────────────────── -->
+  <div id="modal-setup" class="modal-overlay" hidden>
+    <div class="modal setup-modal" role="dialog" aria-modal="true">
+
+      <!-- Step 1: Goal -->
+      <div id="setup-step-1">
+        <h2>Quick Setup</h2>
+        <p class="setup-subtitle">What is your main training goal?</p>
+        <div class="goal-grid">
+          <button class="goal-card" data-goal="strength">
+            <strong>Strength</strong>
+            <span class="goal-detail">3–6 reps &nbsp;·&nbsp; +5 lb jumps</span>
+            <span class="goal-sub">Focus on lifting heavier over time</span>
+          </button>
+          <button class="goal-card" data-goal="hypertrophy">
+            <strong>Hypertrophy</strong>
+            <span class="goal-detail">8–12 reps &nbsp;·&nbsp; +2.5 lb jumps</span>
+            <span class="goal-sub">Focus on building muscle size</span>
+          </button>
+        </div>
+        <button id="btn-cancel-setup" class="btn-secondary" style="margin-top:1.25rem">Cancel</button>
+      </div>
+
+      <!-- Step 2: Template -->
+      <div id="setup-step-2" hidden>
+        <button id="btn-setup-back" class="btn-back">← Back</button>
+        <h2>Choose a Split</h2>
+        <p class="setup-subtitle" id="setup-goal-label"></p>
+        <div id="template-grid" class="template-grid"></div>
+        <p id="setup-error" class="error" hidden></p>
+      </div>
+
     </div>
   </div>
 

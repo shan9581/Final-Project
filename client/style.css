@@ -187,3 +187,224 @@ tbody tr:hover td { background: var(--bg); }
 /* ── Misc ────────────────────────────────────────────────────────────────────── */
 .empty-state { color: var(--muted); font-size: .9rem; padding: .5rem 0; }
 h2 { font-size: 1.5rem; }
+
+/* ── View header row ─────────────────────────────────────────────────────────── */
+.view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: .75rem;
+}
+
+/* ── Day view ────────────────────────────────────────────────────────────────── */
+.day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.btn-danger-sm {
+  background: none;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  padding: .35rem .75rem;
+  font-size: .8rem;
+  border-radius: var(--radius);
+}
+.btn-danger-sm:hover { background: var(--danger); color: #fff; }
+
+.btn-add-ex { margin-top: 1rem; }
+
+/* ── Day exercise card ───────────────────────────────────────────────────────── */
+.day-exercise-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  box-shadow: var(--shadow);
+  margin-top: .75rem;
+}
+
+.day-exercise-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: .4rem;
+}
+
+.day-exercise-name {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--accent);
+  cursor: pointer;
+}
+.day-exercise-name:hover { text-decoration: underline; }
+
+.btn-remove {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 0 .25rem;
+  line-height: 1;
+}
+.btn-remove:hover { color: var(--danger); }
+
+.day-rec-row { margin-bottom: .75rem; }
+
+.day-rec-badge {
+  font-size: .82rem;
+  color: var(--muted);
+  background: var(--bg);
+  border-radius: 6px;
+  padding: .2rem .55rem;
+  display: inline-block;
+}
+
+.day-log-row {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+
+.input-day-weight,
+.input-day-reps { width: 120px; }
+
+.btn-log-inline { padding: .4rem .85rem; font-size: .85rem; }
+
+.inline-feedback { font-size: .8rem; }
+.inline-feedback.feedback { color: var(--success); }
+.inline-feedback.error    { color: var(--danger);  }
+
+/* ── Exercise picker modal ───────────────────────────────────────────────────── */
+.picker-modal {
+  width: min(500px, 94vw);
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+.picker-search { margin-bottom: .75rem; width: 100%; }
+
+.picker-list {
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+
+.picker-category {
+  font-size: .7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+  padding: .45rem .75rem .2rem;
+  background: var(--bg);
+  position: sticky;
+  top: 0;
+}
+
+.picker-row {
+  padding: .5rem .75rem;
+  cursor: pointer;
+  font-size: .9rem;
+  border-bottom: 1px solid var(--border);
+}
+.picker-row:last-child { border-bottom: none; }
+.picker-row:hover { background: var(--bg); color: var(--accent); }
+
+.picker-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: .75rem 0;
+}
+
+.picker-custom-label {
+  font-size: .85rem;
+  color: var(--muted);
+  margin-bottom: .75rem;
+}
+
+/* ── Header actions (multiple buttons) ───────────────────────────────────────── */
+.header-actions { display: flex; gap: .5rem; }
+
+/* ── Quick Setup Modal ───────────────────────────────────────────────────────── */
+.setup-modal {
+  width: min(560px, 94vw);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.setup-subtitle {
+  color: var(--muted);
+  font-size: .9rem;
+  margin: .4rem 0 1.25rem;
+}
+
+.goal-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .75rem;
+}
+@media (max-width: 420px) { .goal-grid { grid-template-columns: 1fr; } }
+
+.goal-card {
+  background: var(--bg);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.1rem 1rem;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+  transition: border-color .15s, background .15s;
+}
+.goal-card:hover { border-color: var(--accent); background: #eff6ff; }
+.goal-card strong { font-size: 1.05rem; color: var(--text); }
+.goal-detail { font-size: .82rem; color: var(--accent); font-weight: 600; }
+.goal-sub    { font-size: .8rem;  color: var(--muted); }
+
+/* ── Template grid ───────────────────────────────────────────────────────────── */
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: .75rem;
+  margin-top: .5rem;
+}
+
+.template-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+}
+
+.template-name { font-size: .95rem; color: var(--text); }
+.template-desc { font-size: .78rem; color: var(--muted); }
+
+.template-days {
+  list-style: none;
+  font-size: .78rem;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+  flex: 1;
+  margin-top: .25rem;
+}
+.template-days b { color: var(--text); }
+
+.template-select-btn {
+  margin-top: .6rem;
+  font-size: .8rem;
+  padding: .4rem .75rem;
+  align-self: flex-start;
+}

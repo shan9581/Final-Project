@@ -15,3 +15,18 @@ CREATE TABLE IF NOT EXISTS sets (
     reps INTEGER NOT NULL,
     logged_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS workout_days (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    position INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS workout_day_exercises (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workout_day_id INTEGER NOT NULL REFERENCES workout_days(id) ON DELETE CASCADE,
+    exercise_id INTEGER NOT NULL REFERENCES exercises(id),
+    position INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(workout_day_id, exercise_id)
+);

@@ -71,3 +71,79 @@ def insert_set(db, exercise_id, date, weight, reps):
         (cursor.lastrowid,),
     ).fetchone()
     return dict(row)
+
+
+# ── Workout Days ──────────────────────────────────────────────────────────────
+
+def get_workout_days(db):
+    rows = db.execute(
+        "SELECT id, name, position, created_at FROM workout_days ORDER BY position, id"
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_workout_day(db, day_id):
+    row = db.execute(
+        "SELECT id, name, position, created_at FROM workout_days WHERE id = ?",
+        (day_id,),
+    ).fetchone()
+    return _row_to_dict(row)
+
+
+def insert_workout_day(db, name):
+    cursor = db.execute("INSERT INTO workout_days (name) VALUES (?)", (name,))
+    db.commit()
+    return get_workout_day(db, cursor.lastrowid)
+
+
+def delete_workout_day(db, day_id):
+    db.execute("DELETE FROM workout_days WHERE id = ?", (day_id,))
+    db.commit()
+
+
+def get_day_exercises(db, day_id):
+    rows = db.execute(
+        "SELECT e.id, e.name, e.rep_range_low, e.rep_range_high, e.weight_increment "
+        "FROM workout_day_exercises wde "
+        "JOIN exercises e ON e.id = wde.exercise_id "
+        "WHERE wde.workout_day_id = ? "
+        "ORDER BY wde.position, wde.id",
+        (day_id,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def add_exercise_to_day(db, day_id, exercise_id):
+    db.execute(
+        "INSERT OR IGNORE INTO workout_day_exercises (workout_day_id, exercise_id) VALUES (?, ?)",
+        (day_id, exercise_id),
+    )
+    db.commit()
+
+
+def remove_exercise_from_day(db, day_id, exercise_id):
+    db.execute(
+        "DELETE FROM workout_day_exercises WHERE workout_day_id = ? AND exercise_id = ?",
+        (day_id, exercise_id),
+    )
+    db.commit()
+
+
+def get_or_create_exercise(db, name, rep_range_low=5, rep_range_high=8, weight_increment=5.0):
+    row = db.execute(
+        "SELECT id, name, rep_range_low, rep_range_high, weight_increment, created_at "
+        "FROM exercises WHERE name = ?",
+        (name,),
+    ).fetchone()
+    if row:
+        return dict(row)
+    return insert_exercise(db, name, rep_range_low, rep_range_high, weight_increment)
+
+
+def update_exercise_rep_ranges(db, exercise_id, rep_range_low, rep_range_high, weight_increment):
+    db.execute(
+        "UPDATE exercises SET rep_range_low=?, rep_range_high=?, weight_increment=? WHERE id=?",
+        (rep_range_low, rep_range_high, weight_increment, exercise_id),
+    )
+    db.commit()
+    return get_exercise(db, exercise_id)

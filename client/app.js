@@ -241,18 +241,28 @@ async function showSession(dateStr) {
 
   sessionPicker.hidden = false;
   sessionLog.hidden    = true;
-  sessionDayOptions.innerHTML = "";
+  sessionDayOptions.innerHTML = '<p class="empty-state">Loading…</p>';
   sessionExercises.innerHTML  = "";
   sessionNoSplit.hidden = true;
 
-  const result = await get(`/api/sessions/${dateStr}`);
+  try {
+    // Check if a workout was already started for this date
+    let existingSession = null;
+    try {
+      existingSession = await get(`/api/sessions/${dateStr}`);
+    } catch { /* no session or endpoint missing — continue to picker */ }
 
-  if (result) {
-    currentSessionDayId = result.session.workout_day_id;
-    showSessionLog(result.session.workout_day_name, result.exercises, dateStr);
-  } else {
-    const days = await get("/api/workout-days");
-    renderSessionPicker(days);
+    if (existingSession) {
+      currentSessionDayId = existingSession.session.workout_day_id;
+      showSessionLog(existingSession.session.workout_day_name, existingSession.exercises, dateStr);
+    } else {
+      const days = await get("/api/workout-days");
+      sessionDayOptions.innerHTML = "";
+      renderSessionPicker(days);
+    }
+  } catch (err) {
+    sessionDayOptions.innerHTML =
+      `<p class="error" style="padding:.5rem">Failed to load: ${esc(err.message)}</p>`;
   }
 }
 

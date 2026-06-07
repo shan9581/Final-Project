@@ -83,36 +83,17 @@
     <h2 id="detail-title"></h2>
     <p id="detail-range" class="detail-meta"></p>
 
-    <div class="detail-columns">
-      <section class="card">
-        <h3>Log a Set</h3>
-        <form id="form-log-set">
-          <label>Date
-            <input type="date" id="input-date" required />
-          </label>
-          <label>Weight (lbs)
-            <input type="number" id="input-weight" min="0" step="0.5" required />
-          </label>
-          <label>Reps completed
-            <input type="number" id="input-reps" min="1" step="1" required />
-          </label>
-          <button type="submit" class="btn-primary">Log Set</button>
-          <p id="log-feedback" class="feedback" hidden></p>
-        </form>
-      </section>
-
-      <section class="card recommendation-card">
-        <h3>Next Session</h3>
-        <div class="rec-numbers">
-          <span id="rec-weight" class="rec-big">—</span>
-          <span class="rec-unit">lbs</span>
-          <span class="rec-x">×</span>
-          <span id="rec-reps" class="rec-big">—</span>
-          <span class="rec-unit">reps</span>
-        </div>
-        <p id="rec-note" class="rec-note"></p>
-      </section>
-    </div>
+    <section class="card recommendation-card">
+      <h3>Next Session</h3>
+      <div class="rec-numbers">
+        <span id="rec-weight" class="rec-big">—</span>
+        <span class="rec-unit">lbs</span>
+        <span class="rec-x">×</span>
+        <span id="rec-reps" class="rec-big">—</span>
+        <span class="rec-unit">reps</span>
+      </div>
+      <p id="rec-note" class="rec-note"></p>
+    </section>
 
     <section class="card chart-card">
       <h3>Strength Trend (Estimated 1RM)</h3>

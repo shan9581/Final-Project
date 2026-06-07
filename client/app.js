@@ -92,11 +92,6 @@ const dayExercisesList    = document.getElementById("day-exercises-list");
 const viewDetail          = document.getElementById("view-detail");
 const detailTitle         = document.getElementById("detail-title");
 const detailRange         = document.getElementById("detail-range");
-const formLogSet          = document.getElementById("form-log-set");
-const inputDate           = document.getElementById("input-date");
-const inputWeight         = document.getElementById("input-weight");
-const inputReps           = document.getElementById("input-reps");
-const logFeedback         = document.getElementById("log-feedback");
 const recWeight           = document.getElementById("rec-weight");
 const recReps             = document.getElementById("rec-reps");
 const recNote             = document.getElementById("rec-note");
@@ -504,11 +499,6 @@ function showDetail(exercise) {
   detailRange.textContent =
     `Rep range: ${exercise.rep_range_low}–${exercise.rep_range_high}  ·  +${exercise.weight_increment} lbs per progression`;
 
-  inputDate.value   = today();
-  inputWeight.value = "";
-  inputReps.value   = "";
-  hideMsg(logFeedback);
-
   loadRecommendation(exercise.id);
   loadHistory(exercise.id);
   loadTrend(exercise.id);
@@ -579,25 +569,6 @@ async function loadTrend(exerciseId) {
   });
 }
 
-formLogSet.addEventListener("submit", async e => {
-  e.preventDefault();
-  hideMsg(logFeedback);
-  try {
-    await post(`/api/exercises/${currentExerciseId}/sets`, {
-      date:   inputDate.value,
-      weight: parseFloat(inputWeight.value),
-      reps:   parseInt(inputReps.value, 10),
-    });
-    showMsg(logFeedback, "Set logged!", false);
-    inputWeight.value = "";
-    inputReps.value   = "";
-    loadRecommendation(currentExerciseId);
-    loadHistory(currentExerciseId);
-    loadTrend(currentExerciseId);
-  } catch (err) {
-    showMsg(logFeedback, err.message, true);
-  }
-});
 
 // ── Shared day-exercise helpers ───────────────────────────────────────────────
 

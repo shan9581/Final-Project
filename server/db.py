@@ -73,6 +73,24 @@ def insert_set(db, exercise_id, date, weight, reps):
     return dict(row)
 
 
+def upsert_set(db, exercise_id, date, weight, reps):
+    """Replace any existing set for this exercise+date with a single new one."""
+    db.execute(
+        "DELETE FROM sets WHERE exercise_id = ? AND date = ?",
+        (exercise_id, date),
+    )
+    cursor = db.execute(
+        "INSERT INTO sets (exercise_id, date, weight, reps) VALUES (?, ?, ?, ?)",
+        (exercise_id, date, weight, reps),
+    )
+    db.commit()
+    row = db.execute(
+        "SELECT id, exercise_id, date, weight, reps, logged_at FROM sets WHERE id = ?",
+        (cursor.lastrowid,),
+    ).fetchone()
+    return dict(row)
+
+
 # ── Workout Days ──────────────────────────────────────────────────────────────
 
 def get_workout_days(db):

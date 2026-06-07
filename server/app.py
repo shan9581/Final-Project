@@ -2,7 +2,7 @@
 import os
 from flask import Flask, jsonify, request, send_from_directory, g
 from server.db import (
-    get_db, get_exercises, get_exercise, insert_exercise, get_history, insert_set,
+    get_db, get_exercises, get_exercise, insert_exercise, get_history, insert_set, upsert_set,
     get_workout_days, get_workout_day, insert_workout_day, delete_workout_day,
     get_day_exercises, add_exercise_to_day, remove_exercise_from_day, get_or_create_exercise,
     update_exercise_rep_ranges,
@@ -95,6 +95,23 @@ def create_app(config=None):
             reps=int(data["reps"]),
         )
         return jsonify(new_set), 201
+
+    @app.route("/api/exercises/<int:exercise_id>/sets/<date>", methods=["PUT"])
+    def put_set(exercise_id, date):
+        if get_exercise(get_conn(), exercise_id) is None:
+            return jsonify({"error": "exercise not found"}), 404
+        data = request.get_json(silent=True) or {}
+        missing = [f for f in ("weight", "reps") if f not in data]
+        if missing:
+            return jsonify({"error": f"missing fields: {', '.join(missing)}"}), 400
+        updated = upsert_set(
+            get_conn(),
+            exercise_id=exercise_id,
+            date=date,
+            weight=float(data["weight"]),
+            reps=int(data["reps"]),
+        )
+        return jsonify(updated)
 
     # ── Recommendation ────────────────────────────────────────────────────────
 

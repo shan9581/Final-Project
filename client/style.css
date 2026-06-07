@@ -378,11 +378,9 @@ h2 { font-size: 1.5rem; }
 .input-day-weight,
 .input-day-reps { width: 120px; }
 
-.btn-log-inline { padding: .4rem .85rem; font-size: .85rem; }
-
-.inline-feedback { font-size: .8rem; }
-.inline-feedback.feedback { color: var(--success); }
-.inline-feedback.error    { color: var(--danger);  }
+.save-status { font-size: .8rem; }
+.save-status.saved { color: var(--success); }
+.save-status.error { color: var(--danger);  }
 
 /* ── Exercise picker modal ───────────────────────────────────────────────────── */
 .picker-modal {

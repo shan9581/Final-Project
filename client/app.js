@@ -295,13 +295,10 @@ async function showSessionLog(dayName, exercises, date) {
   sessionDayLabel.textContent = dayName;
   sessionExercises.innerHTML  = "";
 
-  // Fetch any sets already logged on this date
+  // Pre-load any sets already logged on this date
   const todaySets = await get(`/api/sessions/${date}/sets`);
   const setsByEx  = {};
-  todaySets.forEach(s => {
-    if (!setsByEx[s.exercise_id]) setsByEx[s.exercise_id] = [];
-    setsByEx[s.exercise_id].push(s);
-  });
+  todaySets.forEach(s => { setsByEx[s.exercise_id] = s; });
 
   if (exercises.length === 0) {
     sessionExercises.innerHTML = `<p class="empty-state">No exercises in this day yet. Add some in My Split.</p>`;
@@ -312,10 +309,7 @@ async function showSessionLog(dayName, exercises, date) {
     const card = document.createElement("div");
     card.className = "day-exercise-card";
 
-    const logged = setsByEx[ex.id] || [];
-    const loggedHtml = logged.map(s =>
-      `<div class="logged-set-row">${s.weight} lbs &times; ${s.reps} reps</div>`
-    ).join("");
+    const existing = setsByEx[ex.id];
 
     card.innerHTML = `
       <div class="day-exercise-header">
@@ -325,12 +319,12 @@ async function showSessionLog(dayName, exercises, date) {
         <span class="day-rec-badge" id="rec-badge-${ex.id}">Loading…</span>
       </div>
       <div class="day-log-row">
-        <input type="number" class="input-day-weight" placeholder="Weight (lbs)" min="0" step="0.5" />
-        <input type="number" class="input-day-reps"   placeholder="Reps" min="1" step="1" />
-        <button class="btn-primary btn-log-inline">Log</button>
-        <span class="inline-feedback" hidden></span>
+        <input type="number" class="input-day-weight" placeholder="Weight (lbs)" min="0" step="0.5"
+               value="${existing ? existing.weight : ''}" />
+        <input type="number" class="input-day-reps" placeholder="Reps" min="1" step="1"
+               value="${existing ? existing.reps : ''}" />
+        <span class="save-status" hidden></span>
       </div>
-      <div class="logged-sets-today" id="logged-today-${ex.id}">${loggedHtml}</div>
     `;
 
     card.querySelector(".day-exercise-name").addEventListener("click", () => {
@@ -341,51 +335,39 @@ async function showSessionLog(dayName, exercises, date) {
       if (e.key === "Enter") { backDestination = "session"; showDetail(ex); }
     });
 
-    card.querySelector(".btn-log-inline").addEventListener("click", () => {
-      const wInput = card.querySelector(".input-day-weight");
-      const rInput = card.querySelector(".input-day-reps");
-      const fb     = card.querySelector(".inline-feedback");
-      logSessionSet(ex.id, wInput, rInput, fb, date);
-    });
+    const wInput = card.querySelector(".input-day-weight");
+    const rInput = card.querySelector(".input-day-reps");
+    const status = card.querySelector(".save-status");
+    let saveTimer = null;
+
+    function scheduleAutoSave() {
+      clearTimeout(saveTimer);
+      const weight = parseFloat(wInput.value);
+      const reps   = parseInt(rInput.value, 10);
+      if (!wInput.value || !rInput.value || isNaN(weight) || isNaN(reps)) return;
+      saveTimer = setTimeout(async () => {
+        try {
+          await api("PUT", `/api/exercises/${ex.id}/sets/${date}`, { weight, reps });
+          status.textContent = "Saved";
+          status.className   = "save-status saved";
+          status.hidden      = false;
+          setTimeout(() => { status.hidden = true; }, 2000);
+          loadRecBadge(ex.id);
+          if (!loggedDates.has(date)) loggedDates.add(date);
+        } catch (err) {
+          status.textContent = err.message;
+          status.className   = "save-status error";
+          status.hidden      = false;
+        }
+      }, 600);
+    }
+
+    wInput.addEventListener("input", scheduleAutoSave);
+    rInput.addEventListener("input", scheduleAutoSave);
 
     sessionExercises.appendChild(card);
     loadRecBadge(ex.id);
   });
-}
-
-async function logSessionSet(exerciseId, wInput, rInput, fb, date) {
-  hideMsg(fb);
-  const weight = parseFloat(wInput.value);
-  const reps   = parseInt(rInput.value, 10);
-
-  if (!wInput.value || !rInput.value || isNaN(weight) || isNaN(reps)) {
-    showMsg(fb, "Enter weight and reps", true);
-    return;
-  }
-
-  try {
-    await post(`/api/exercises/${exerciseId}/sets`, { date, weight, reps });
-    showMsg(fb, "Logged!", false);
-    wInput.value = "";
-    rInput.value = "";
-
-    const container = document.getElementById(`logged-today-${exerciseId}`);
-    if (container) {
-      const row = document.createElement("div");
-      row.className   = "logged-set-row";
-      row.textContent = `${weight} lbs × ${reps} reps`;
-      container.appendChild(row);
-    }
-
-    loadRecBadge(exerciseId);
-
-    // Add dot to calendar if this date is in the current view
-    if (!loggedDates.has(date)) {
-      loggedDates.add(date);
-    }
-  } catch (err) {
-    showMsg(fb, err.message, true);
-  }
 }
 
 document.getElementById("btn-back-to-cal").addEventListener("click", showCalendar);

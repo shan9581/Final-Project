@@ -45,6 +45,24 @@ header {
 }
 .header-title:hover { text-decoration: underline; }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.btn-reset {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: .78rem;
+  padding: .3rem .65rem;
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+}
+.btn-reset:hover { color: var(--danger); border-color: var(--danger); }
+
 /* ── Views ─────────────────────────────────────────────────────────────────── */
 .view { max-width: 900px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
 

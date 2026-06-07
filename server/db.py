@@ -197,6 +197,16 @@ def get_sets_on_date(db, date):
     return [dict(r) for r in rows]
 
 
+def reset_all_data(db):
+    """Delete every row from every table — full reset."""
+    db.execute("DELETE FROM sets")
+    db.execute("DELETE FROM workout_sessions")
+    db.execute("DELETE FROM workout_day_exercises")
+    db.execute("DELETE FROM workout_days")
+    db.execute("DELETE FROM exercises")
+    db.commit()
+
+
 def update_exercise_rep_ranges(db, exercise_id, rep_range_low, rep_range_high, weight_increment):
     db.execute(
         "UPDATE exercises SET rep_range_low=?, rep_range_high=?, weight_increment=? WHERE id=?",

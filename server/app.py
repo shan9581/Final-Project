@@ -5,7 +5,7 @@ from server.db import (
     get_db, get_exercises, get_exercise, insert_exercise, get_history, insert_set, upsert_set,
     get_workout_days, get_workout_day, insert_workout_day, delete_workout_day,
     get_day_exercises, add_exercise_to_day, remove_exercise_from_day, get_or_create_exercise,
-    update_exercise_rep_ranges,
+    update_exercise_rep_ranges, reset_all_data,
     get_session, insert_session, get_logged_dates_in_month, get_sets_on_date,
 )
 from server.recommendation import recommend, build_trend
@@ -259,6 +259,11 @@ def create_app(config=None):
     @app.route("/api/calendar/<int:year>/<int:month>", methods=["GET"])
     def calendar_dates(year, month):
         return jsonify(get_logged_dates_in_month(get_conn(), year, month))
+
+    @app.route("/api/reset", methods=["POST"])
+    def reset():
+        reset_all_data(get_conn())
+        return "", 204
 
     return app
 

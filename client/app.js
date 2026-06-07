@@ -763,6 +763,19 @@ function showMsg(el, msg, isError) {
 
 function hideMsg(el) { el.hidden = true; }
 
+// ── Reset ─────────────────────────────────────────────────────────────────────
+
+document.getElementById("btn-reset").addEventListener("click", async () => {
+  if (!confirm("Clear ALL data?\n\nThis deletes every exercise, workout day, and logged set. It cannot be undone.")) return;
+  try {
+    await post("/api/reset", {});
+    loggedDates = new Set();
+    showCalendar();
+  } catch (err) {
+    alert("Reset failed: " + err.message);
+  }
+});
+
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
 showCalendar();

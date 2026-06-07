@@ -10,6 +10,12 @@ from server.db import (
 )
 from server.recommendation import recommend, build_trend
 from server.presets import PRESET_EXERCISES, SPLIT_TEMPLATES, REP_RANGES
+from server.stats import (
+    compute_prs, compute_1rm_trend, compute_recent_prs,
+    compute_weekly_volume, compute_working_sets_per_week, compute_category_totals,
+    compute_streaks, compute_workouts_per_week, compute_heatmap,
+    compute_stalled_lifts, compute_muscle_balance, compute_exercise_frequency,
+)
 
 CLIENT_DIR = os.path.join(os.path.dirname(__file__), "..", "client")
 
@@ -259,6 +265,59 @@ def create_app(config=None):
     @app.route("/api/calendar/<int:year>/<int:month>", methods=["GET"])
     def calendar_dates(year, month):
         return jsonify(get_logged_dates_in_month(get_conn(), year, month))
+
+    # ── Stats ─────────────────────────────────────────────────────────────────
+
+    @app.route("/api/stats", methods=["GET"])
+    def get_stats():
+        db = get_conn()
+        category_map = {ex["name"]: ex["category"] for ex in PRESET_EXERCISES}
+
+        exercises = get_exercises(db)
+        exh = [
+            {"id": ex["id"], "name": ex["name"], "history": get_history(db, ex["id"])}
+            for ex in exercises
+        ]
+
+        rows = db.execute(
+            "SELECT s.date, s.weight, s.reps, e.name AS exercise_name "
+            "FROM sets s JOIN exercises e ON e.id = s.exercise_id ORDER BY s.date"
+        ).fetchall()
+        all_sets = [dict(r) for r in rows]
+        all_sets_cat = [{**s, "category": category_map.get(s["exercise_name"])} for s in all_sets]
+
+        session_dates = [
+            r["date"] for r in
+            db.execute("SELECT date FROM workout_sessions ORDER BY date").fetchall()
+        ]
+
+        prs    = {ex["name"]: compute_prs(ex["history"]) for ex in exh if ex["history"]}
+        trends = {ex["name"]: compute_1rm_trend(ex["history"]) for ex in exh if len(ex["history"]) >= 2}
+        cat    = compute_category_totals(all_sets_cat)
+
+        return jsonify({
+            "strength": {
+                "prs":        prs,
+                "trends":     trends,
+                "recent_prs": compute_recent_prs(exh),
+            },
+            "volume": {
+                "weekly":             compute_weekly_volume(all_sets),
+                "working_sets":       compute_working_sets_per_week(all_sets),
+                "category_totals":    cat["totals"],
+                "uncategorized_count": cat["uncategorized_count"],
+            },
+            "consistency": {
+                "streaks":           compute_streaks(session_dates),
+                "workouts_per_week": compute_workouts_per_week(session_dates),
+                "heatmap":           compute_heatmap(session_dates),
+            },
+            "diagnostics": {
+                "stalled":   compute_stalled_lifts(exh),
+                "balance":   compute_muscle_balance(all_sets_cat),
+                "frequency": compute_exercise_frequency(exh),
+            },
+        })
 
     @app.route("/api/reset", methods=["POST"])
     def reset():

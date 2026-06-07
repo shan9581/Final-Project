@@ -68,6 +68,10 @@ let setupGoal  = null;
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
 
+const viewStats           = document.getElementById("view-stats");
+const statsLoading        = document.getElementById("stats-loading");
+const statsContent        = document.getElementById("stats-content");
+
 const viewCalendar        = document.getElementById("view-calendar");
 const calGrid             = document.getElementById("cal-grid");
 const calMonthLabel       = document.getElementById("cal-month-label");
@@ -148,6 +152,7 @@ function hideAllViews() {
   viewSplit.hidden    = true;
   viewDay.hidden      = true;
   viewDetail.hidden   = true;
+  viewStats.hidden    = true;
 }
 
 // ── Calendar ──────────────────────────────────────────────────────────────────
@@ -762,6 +767,395 @@ function showMsg(el, msg, isError) {
 }
 
 function hideMsg(el) { el.hidden = true; }
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+
+const CAT_COLORS = {
+  Push: "#2563eb", Pull: "#16a34a", Legs: "#d97706", Core: "#7c3aed", Other: "#9ca3af",
+};
+const CHART_PALETTE = ["#2563eb","#16a34a","#d97706","#7c3aed","#db2777","#9ca3af"];
+
+let statsCharts = {};
+
+function destroyStatsCharts() {
+  Object.values(statsCharts).forEach(c => c.destroy());
+  statsCharts = {};
+}
+
+function fmtWeek(isoDate) {
+  const d = new Date(isoDate + "T12:00:00");
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+async function showStats() {
+  hideAllViews();
+  viewStats.hidden    = false;
+  statsLoading.hidden = false;
+  statsContent.hidden = true;
+  destroyStatsCharts();
+  try {
+    const data = await get("/api/stats");
+    renderStrength(data.strength);
+    renderVolume(data.volume);
+    renderConsistency(data.consistency);
+    renderDiagnostics(data.diagnostics);
+    statsLoading.hidden = true;
+    statsContent.hidden = false;
+  } catch (err) {
+    statsLoading.textContent = "Failed to load stats: " + esc(err.message);
+  }
+}
+
+document.getElementById("btn-stats").addEventListener("click", showStats);
+document.getElementById("btn-back-stats").addEventListener("click", showCalendar);
+
+// ── Strength ──────────────────────────────────────────────────────────────────
+
+function renderStrength(data) {
+  renderRecentPRs(data.recent_prs);
+
+  const exercises = Object.keys(data.trends)
+    .sort((a, b) => (data.trends[b].length || 0) - (data.trends[a].length || 0));
+
+  const sel   = document.getElementById("stats-exercise-select");
+  const empty = document.getElementById("stats-1rm-empty");
+  const canvas = document.getElementById("stats-1rm-chart");
+
+  sel.innerHTML = "";
+  if (exercises.length === 0) {
+    empty.hidden  = false;
+    canvas.hidden = true;
+    sel.hidden    = true;
+  } else {
+    exercises.forEach(name => {
+      const o = document.createElement("option");
+      o.value = o.textContent = name;
+      sel.appendChild(o);
+    });
+    sel.hidden    = false;
+    empty.hidden  = true;
+    canvas.hidden = false;
+    render1rmChart(data.trends, exercises[0]);
+    sel.value = exercises[0];
+    sel.onchange = () => render1rmChart(data.trends, sel.value);
+  }
+
+  renderPrsTable(data.prs);
+}
+
+function renderRecentPRs(recentPRs) {
+  const card = document.getElementById("stats-recent-prs-card");
+  const box  = document.getElementById("stats-recent-prs");
+  if (!recentPRs || recentPRs.length === 0) { card.hidden = true; return; }
+  card.hidden = false;
+  box.innerHTML = `<div class="recent-prs-list">${
+    recentPRs.slice(0, 8).map(pr => `
+      <div class="recent-pr-row">
+        <div>
+          <span class="pr-badge">${esc(pr.pr_type)}</span>
+          <span class="recent-pr-name">${esc(pr.exercise)}</span>
+        </div>
+        <div>
+          <span class="pr-value">${esc(pr.value)}</span>
+          <span class="pr-date">&nbsp;${esc(pr.date)}</span>
+        </div>
+      </div>`).join("")
+  }</div>`;
+}
+
+function render1rmChart(trends, name) {
+  const raw    = trends[name] || [];
+  const labels = raw.map(d => d.date);
+  const values = raw.map(d => d.estimated_1rm);
+
+  if (statsCharts["1rm"]) {
+    const c = statsCharts["1rm"];
+    c.data.labels = labels;
+    c.data.datasets[0].data   = values;
+    c.data.datasets[0].label  = name + " — Est. 1RM (lbs)";
+    c.update();
+    return;
+  }
+
+  const ctx = document.getElementById("stats-1rm-chart").getContext("2d");
+  statsCharts["1rm"] = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        label: name + " — Est. 1RM (lbs)",
+        data: values,
+        borderColor: "#2563eb",
+        backgroundColor: "rgba(37,99,235,.08)",
+        fill: true, tension: 0.3,
+        pointBackgroundColor: "#2563eb",
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { x: { grid: { display: false } }, y: { beginAtZero: false } },
+    },
+  });
+}
+
+function renderPrsTable(prs) {
+  const el      = document.getElementById("stats-prs-table");
+  const entries = Object.entries(prs).filter(([, v]) => v).sort(([a], [b]) => a.localeCompare(b));
+  if (entries.length === 0) {
+    el.innerHTML = `<p class="empty-state">No exercises logged yet.</p>`;
+    return;
+  }
+  el.innerHTML = `
+    <table class="prs-table">
+      <thead><tr>
+        <th>Exercise</th><th>Best Weight</th><th>Est. 1RM</th><th>Best Reps</th>
+      </tr></thead>
+      <tbody>${entries.map(([name, p]) => `
+        <tr>
+          <td>${esc(name)}</td>
+          <td>${p.best_weight} lbs <span class="pr-date">${esc(p.best_weight_date || "")}</span></td>
+          <td>${p.best_1rm} lbs <span class="pr-date">${esc(p.best_1rm_date || "")}</span></td>
+          <td>${p.best_reps} @ ${p.best_reps_weight} lbs <span class="pr-date">${esc(p.best_reps_date || "")}</span></td>
+        </tr>`).join("")}
+      </tbody>
+    </table>`;
+}
+
+// ── Volume ────────────────────────────────────────────────────────────────────
+
+function renderVolume(data) {
+  const weeks = data.weekly.map(w => fmtWeek(w.week));
+
+  // Weekly volume bar
+  const vols   = data.weekly.map(w => w.volume);
+  const hasVol = vols.some(v => v > 0);
+  document.getElementById("stats-volume-empty").hidden  = hasVol;
+  document.getElementById("stats-volume-chart").hidden  = !hasVol;
+  if (hasVol) {
+    statsCharts["volume"] = new Chart(
+      document.getElementById("stats-volume-chart").getContext("2d"),
+      barChartConfig(weeks, vols, "Volume (lbs)", "rgba(37,99,235,.7)")
+    );
+  }
+
+  // Working sets bar
+  const sets = data.working_sets.map(w => w.sets);
+  statsCharts["sets"] = new Chart(
+    document.getElementById("stats-sets-chart").getContext("2d"),
+    barChartConfig(weeks, sets, "Sets", "rgba(22,163,74,.7)")
+  );
+
+  // Muscle group doughnut
+  renderMuscleDoughnut(data.category_totals, data.uncategorized_count);
+}
+
+function barChartConfig(labels, data, label, color) {
+  return {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{ label, data, backgroundColor: color, borderRadius: 4 }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { x: { grid: { display: false } }, y: { beginAtZero: true } },
+    },
+  };
+}
+
+function renderMuscleDoughnut(totals, uncategorizedCount) {
+  const note   = document.getElementById("stats-muscle-note");
+  const empty  = document.getElementById("stats-muscle-empty");
+  const canvas = document.getElementById("stats-muscle-chart");
+
+  if (!totals || Object.keys(totals).length === 0) {
+    empty.hidden  = false;
+    canvas.hidden = true;
+    if (uncategorizedCount > 0) {
+      note.textContent = `${uncategorizedCount} sets couldn't be categorized — use exercise names from Quick Setup presets for a full breakdown.`;
+      note.hidden = false;
+    }
+    return;
+  }
+
+  empty.hidden  = true;
+  canvas.hidden = false;
+  if (uncategorizedCount > 0 || totals["Other"]) {
+    note.textContent = "Exercises not in the preset library appear as \"Other\".";
+    note.hidden = false;
+  } else {
+    note.hidden = true;
+  }
+
+  const labels = Object.keys(totals);
+  const values = Object.values(totals);
+  const colors = labels.map(l => CAT_COLORS[l] || "#9ca3af");
+
+  statsCharts["muscle"] = new Chart(
+    canvas.getContext("2d"),
+    doughnutConfig(labels, values, colors)
+  );
+}
+
+function doughnutConfig(labels, data, colors) {
+  return {
+    type: "doughnut",
+    data: {
+      labels,
+      datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: "#fff" }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: "bottom", labels: { font: { size: 11 }, padding: 10 } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed.toFixed(0)} lbs` } },
+      },
+    },
+  };
+}
+
+// ── Consistency ───────────────────────────────────────────────────────────────
+
+function renderConsistency(data) {
+  document.getElementById("stats-current-streak").textContent = data.streaks.current_streak;
+  document.getElementById("stats-longest-streak").textContent = data.streaks.longest_streak;
+
+  const wpw = data.workouts_per_week;
+  const total = wpw.reduce((s, w) => s + w.count, 0);
+  document.getElementById("stats-avg-workouts").textContent =
+    wpw.length ? (total / wpw.length).toFixed(1) : "0";
+
+  const weeks  = wpw.map(w => fmtWeek(w.week));
+  const counts = wpw.map(w => w.count);
+  const hasAny = counts.some(c => c > 0);
+  document.getElementById("stats-consistency-empty").hidden  =  hasAny;
+  document.getElementById("stats-consistency-chart").hidden  = !hasAny;
+  if (hasAny) {
+    statsCharts["consistency"] = new Chart(
+      document.getElementById("stats-consistency-chart").getContext("2d"),
+      {
+        type: "bar",
+        data: {
+          labels: weeks,
+          datasets: [{ label: "Workouts", data: counts, backgroundColor: "rgba(124,58,237,.7)", borderRadius: 4 }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { display: false } },
+            y: { beginAtZero: true, ticks: { stepSize: 1 } },
+          },
+        },
+      }
+    );
+  }
+
+  renderHeatmap(data.heatmap);
+}
+
+function renderHeatmap(cells) {
+  const container = document.getElementById("stats-heatmap");
+  container.innerHTML = "";
+  const todayStr = today();
+
+  const labels = document.createElement("div");
+  labels.className = "heatmap-day-labels";
+  ["M","T","W","T","F","S","S"].forEach(l => {
+    const s = document.createElement("span");
+    s.textContent = l;
+    labels.appendChild(s);
+  });
+
+  const grid = document.createElement("div");
+  grid.className = "heatmap-grid";
+  cells.forEach(cell => {
+    const div = document.createElement("div");
+    div.className = "heatmap-cell" + (cell.count ? " active" : "");
+    if (cell.date === todayStr) div.dataset.today = "true";
+    div.title = cell.date + (cell.count ? " · trained" : "");
+    grid.appendChild(div);
+  });
+
+  const inner = document.createElement("div");
+  inner.className = "heatmap-inner";
+  inner.appendChild(labels);
+  inner.appendChild(grid);
+  container.appendChild(inner);
+}
+
+// ── Diagnostics ───────────────────────────────────────────────────────────────
+
+function renderDiagnostics(data) {
+  // Muscle balance doughnut (last 4 weeks, categorized only)
+  const balEmpty  = document.getElementById("stats-balance-empty");
+  const balCanvas = document.getElementById("stats-balance-chart");
+  const balance   = data.balance;
+  if (!balance || Object.keys(balance).length === 0) {
+    balEmpty.hidden  = false;
+    balCanvas.hidden = true;
+  } else {
+    balEmpty.hidden  = true;
+    balCanvas.hidden = false;
+    const labels = Object.keys(balance);
+    statsCharts["balance"] = new Chart(
+      balCanvas.getContext("2d"),
+      {
+        type: "doughnut",
+        data: {
+          labels,
+          datasets: [{
+            data:            labels.map(l => balance[l].pct),
+            backgroundColor: labels.map(l => CAT_COLORS[l] || "#9ca3af"),
+            borderWidth: 2, borderColor: "#fff",
+          }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { position: "bottom", labels: { font: { size: 11 }, padding: 10 } },
+            tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed.toFixed(1)}%` } },
+          },
+        },
+      }
+    );
+  }
+
+  // Exercise frequency
+  const freqEl = document.getElementById("stats-frequency");
+  if (!data.frequency || data.frequency.length === 0) {
+    freqEl.innerHTML = `<p class="empty-state">No exercises in the last 4 weeks.</p>`;
+  } else {
+    const max = Math.max(...data.frequency.map(f => f.per_week));
+    freqEl.innerHTML = data.frequency.map(f => `
+      <div class="freq-row">
+        <span>${esc(f.exercise)}</span>
+        <span class="freq-right">
+          <div class="freq-bar-wrap">
+            <div class="freq-bar" style="width:${Math.round(f.per_week / max * 100)}%"></div>
+          </div>
+          <span class="pr-date">${f.per_week}×/wk</span>
+        </span>
+      </div>`).join("");
+  }
+
+  // Stalled lifts
+  const stalledEl = document.getElementById("stats-stalled");
+  if (!data.stalled || data.stalled.length === 0) {
+    stalledEl.innerHTML = `<p class="empty-state">No stalled lifts detected — keep it up!</p>`;
+  } else {
+    stalledEl.innerHTML = data.stalled.map(s => `
+      <div class="stalled-row">
+        <span>${esc(s.exercise)}</span>
+        <span class="stalled-right">
+          <span class="pr-date">Est. 1RM: ${s.current_1rm} lbs</span>
+          <span class="stalled-badge">~4 wks no gain</span>
+        </span>
+      </div>`).join("");
+  }
+}
 
 // ── Import CSV ────────────────────────────────────────────────────────────────
 

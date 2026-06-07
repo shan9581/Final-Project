@@ -14,6 +14,7 @@
     <span id="header-title" class="header-title" role="button" tabindex="0">Workout Tracker</span>
     <div class="header-right">
       <button id="btn-import" class="btn-secondary">Import CSV</button>
+      <button id="btn-stats" class="btn-secondary">Stats</button>
       <button id="btn-my-split" class="btn-secondary">My Split</button>
       <button id="btn-reset" class="btn-reset" title="Clear all data">&#10006; Reset</button>
     </div>
@@ -163,6 +164,108 @@
       </form>
     </div>
   </div>
+
+  <!-- ── Stats View ───────────────────────────────────────────────────────── -->
+  <main id="view-stats" class="view" hidden>
+    <button id="btn-back-stats" class="btn-back">&#8592; Back</button>
+    <h2>Statistics</h2>
+    <p id="stats-loading" class="empty-state">Loading…</p>
+
+    <div id="stats-content" hidden>
+
+      <!-- Strength -->
+      <section class="stats-section">
+        <h3 class="stats-section-title">Strength Progression</h3>
+        <div id="stats-recent-prs-card" class="card" hidden>
+          <h4>Recent PRs <span class="stats-note-inline">(last 4 weeks)</span></h4>
+          <div id="stats-recent-prs"></div>
+        </div>
+        <div class="card chart-card">
+          <div class="stats-chart-header">
+            <h4>Estimated 1RM Over Time</h4>
+            <select id="stats-exercise-select" class="stats-select"></select>
+          </div>
+          <div class="chart-wrapper"><canvas id="stats-1rm-chart"></canvas></div>
+          <p id="stats-1rm-empty" class="empty-state" hidden>No history yet — log sets to see your trend.</p>
+        </div>
+        <div class="card">
+          <h4>Personal Records</h4>
+          <div id="stats-prs-table"></div>
+        </div>
+      </section>
+
+      <!-- Volume -->
+      <section class="stats-section">
+        <h3 class="stats-section-title">Volume</h3>
+        <div class="card chart-card">
+          <h4>Weekly Volume <span class="stats-note-inline">(weight &times; reps, last 12 weeks)</span></h4>
+          <div class="chart-wrapper"><canvas id="stats-volume-chart"></canvas></div>
+          <p id="stats-volume-empty" class="empty-state" hidden>No sets logged yet.</p>
+        </div>
+        <div class="stats-two-col">
+          <div class="card chart-card">
+            <h4>Working Sets per Week</h4>
+            <div class="chart-wrapper"><canvas id="stats-sets-chart"></canvas></div>
+          </div>
+          <div class="card chart-card">
+            <h4>Volume by Muscle Group</h4>
+            <div class="chart-wrapper chart-wrapper-sm"><canvas id="stats-muscle-chart"></canvas></div>
+            <p id="stats-muscle-note" class="stats-note" hidden></p>
+            <p id="stats-muscle-empty" class="empty-state" hidden>No categorized data yet.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Consistency -->
+      <section class="stats-section">
+        <h3 class="stats-section-title">Consistency</h3>
+        <div class="stats-kpi-row">
+          <div class="stats-kpi card">
+            <span id="stats-current-streak" class="kpi-value">0</span>
+            <span class="kpi-label">Day Streak</span>
+          </div>
+          <div class="stats-kpi card">
+            <span id="stats-longest-streak" class="kpi-value">0</span>
+            <span class="kpi-label">Longest Streak</span>
+          </div>
+          <div class="stats-kpi card">
+            <span id="stats-avg-workouts" class="kpi-value">0</span>
+            <span class="kpi-label">Avg / Week</span>
+          </div>
+        </div>
+        <div class="card chart-card">
+          <h4>Workouts per Week</h4>
+          <div class="chart-wrapper"><canvas id="stats-consistency-chart"></canvas></div>
+          <p id="stats-consistency-empty" class="empty-state" hidden>No sessions logged yet.</p>
+        </div>
+        <div class="card">
+          <h4>Training Activity <span class="stats-note-inline">(last year)</span></h4>
+          <div id="stats-heatmap" class="heatmap-wrap"></div>
+        </div>
+      </section>
+
+      <!-- Diagnostics -->
+      <section class="stats-section">
+        <h3 class="stats-section-title">Diagnostics</h3>
+        <div class="stats-two-col">
+          <div class="card chart-card">
+            <h4>Muscle Balance <span class="stats-note-inline">(last 4 weeks)</span></h4>
+            <div class="chart-wrapper chart-wrapper-sm"><canvas id="stats-balance-chart"></canvas></div>
+            <p id="stats-balance-empty" class="empty-state" hidden>Not enough categorized data yet.</p>
+          </div>
+          <div class="card">
+            <h4>Exercise Frequency <span class="stats-note-inline">(last 4 weeks)</span></h4>
+            <div id="stats-frequency"></div>
+          </div>
+        </div>
+        <div class="card">
+          <h4>Stalled Lifts <span class="stats-note-inline">(no 1RM improvement in 4 weeks)</span></h4>
+          <div id="stats-stalled"></div>
+        </div>
+      </section>
+
+    </div><!-- #stats-content -->
+  </main>
 
   <!-- ── Import CSV Modal ─────────────────────────────────────────────────── -->
   <div id="modal-import" class="modal-overlay" hidden>

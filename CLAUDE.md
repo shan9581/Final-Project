@@ -21,10 +21,14 @@ A workout tracker web application built as a learning project. The goal is to un
 
 **Core features:**
 
-- **Workout split builder** — users create named training days (e.g. "Push Day"), assign exercises to each, and log sets day by day.
+- **Calendar-based logging** — home screen is a monthly calendar; click any date to log that day's workout. Dates with logged sets show a dot.
+- **Workout split builder** — users create named training days (e.g. "Push Day"), assign exercises to each. My Split is structure-management only; all logging happens through the calendar.
+- **Auto-save inputs** — weight and reps fields save automatically 600 ms after the user stops typing (no Log button). Revisiting a date pre-fills all inputs with previously logged values.
 - **Quick Setup wizard** — recommends a split template (Push/Pull/Legs, Upper/Lower, Full Body, Bro Split) and sets rep ranges based on the user's goal (Strength or Hypertrophy).
 - **Double progression engine** — add one rep per session until hitting the top of the rep range, then add weight and reset reps. Lives in pure Python with no DB calls.
 - **Strength trend** — each session is reduced to an estimated 1RM using the Epley formula (`weight × (1 + reps/30)`), graphed over time per exercise.
+- **CSV import** — import historical workout data via file upload or paste. Unknown exercises are created automatically.
+- **Reset** — header button wipes all data from every table for a clean restart.
 
 ---
 
@@ -64,7 +68,7 @@ Final-Project/
 │   └── schema.sql             ← CREATE TABLE statements (run on every DB connection)
 │
 ├── client/
-│   ├── index.html             ← Three views: split home, day view, exercise detail
+│   ├── index.html             ← Views: calendar, session, split, day, detail + modals
 │   ├── style.css
 │   └── app.js                 ← All frontend logic; SPLIT_TEMPLATES duplicated here for speed
 │
@@ -99,10 +103,18 @@ Then open **http://127.0.0.1:5000** in your browser.
 ## UI Navigation Flow
 
 ```
-Split Home (view-split)
-  └── Click a day card  →  Day View (view-day)
+Calendar (home / view-calendar)
+  └── Click a date  →  Session View (view-session)
+        ├── No session yet: pick a workout day from your split
+        └── Session exists: shows exercises with auto-save weight/reps inputs
+              └── Click exercise name  →  Exercise Detail (view-detail)
+                    └── Back  →  Session View
+
+Header: "Import CSV" | "My Split" | "✕ Reset"
+
+My Split (view-split)
+  └── Click a day card  →  Day View (view-day)  [structure only, no logging]
         └── Click exercise name  →  Exercise Detail (view-detail)
-              └── Back button  →  Day View
   └── "Quick Setup"  →  Setup wizard modal (goal → template → creates days + exercises)
   └── "+ Add Day"    →  Add Day modal
 ```
@@ -111,7 +123,7 @@ Split Home (view-split)
 
 ## REST API Endpoints
 
-### Exercises (original)
+### Exercises
 
 | Method | URL | Description |
 |---|---|---|
@@ -119,7 +131,8 @@ Split Home (view-split)
 | POST | `/api/exercises` | Create an exercise |
 | GET | `/api/exercises/<id>` | Get one exercise |
 | GET | `/api/exercises/<id>/history` | All logged sets |
-| POST | `/api/exercises/<id>/sets` | Log a set |
+| POST | `/api/exercises/<id>/sets` | Append a set (used by import) |
+| PUT | `/api/exercises/<id>/sets/<date>` | Upsert — replace set for this exercise+date (used by auto-save) |
 | GET | `/api/exercises/<id>/recommendation` | Next-session recommendation |
 | GET | `/api/exercises/<id>/trend` | Estimated 1RM over time |
 
@@ -142,7 +155,23 @@ Split Home (view-split)
 | GET | `/api/split-templates` | List split templates (PPL, Upper/Lower, etc.) |
 | POST | `/api/setup` | Create a full split in one call — body: `{ goal, template }` |
 
-All requests/responses use JSON. Errors return `{ "error": "..." }` with an appropriate HTTP status code. DELETE routes return 204 with no body.
+### Sessions & Calendar
+
+| Method | URL | Description |
+|---|---|---|
+| GET | `/api/sessions/<date>` | Get session + exercises for a date, or null |
+| POST | `/api/sessions` | Create/replace session — body: `{ date, workout_day_id }` |
+| GET | `/api/sessions/<date>/sets` | All sets logged on a date |
+| GET | `/api/calendar/<year>/<month>` | List of dates with logged sets in that month |
+
+### Utilities
+
+| Method | URL | Description |
+|---|---|---|
+| POST | `/api/import` | Import CSV — body: `{ csv: "..." }` — returns `{ imported, errors }` |
+| POST | `/api/reset` | Delete all data from every table |
+
+All requests/responses use JSON. Errors return `{ "error": "..." }` with an appropriate HTTP status code. DELETE and reset routes return 204 with no body.
 
 ---
 
@@ -156,7 +185,40 @@ All requests/responses use JSON. Errors return `{ "error": "..." }` with an appr
 
 **`workout_day_exercises`** — `id`, `workout_day_id` (FK → workout_days, ON DELETE CASCADE), `exercise_id` (FK → exercises), `position`; UNIQUE(workout_day_id, exercise_id)
 
+**`workout_sessions`** — `id`, `date` (UNIQUE), `workout_day_id` (FK → workout_days, ON DELETE CASCADE), `created_at`
+
 Schema is applied via `db.executescript(schema.sql)` on every new connection, so new tables are created automatically on first run.
+
+---
+
+## Key db.py Functions
+
+- `upsert_set(db, exercise_id, date, weight, reps)` — deletes all sets for that exercise+date, inserts one new row. Used by the auto-save PUT endpoint so editing replaces rather than accumulates.
+- `reset_all_data(db)` — deletes all rows from sets, workout_sessions, workout_day_exercises, workout_days, exercises in dependency order.
+- `get_or_create_exercise(db, name, ...)` — looks up by name, inserts if missing. Used by import and setup.
+- `insert_session / get_session` — one session (workout type) per date; `INSERT OR REPLACE` semantics.
+- `get_logged_dates_in_month(db, year, month)` — returns list of YYYY-MM-DD strings that have sets, used to draw calendar dots.
+
+---
+
+## CSV Import Format
+
+```
+date,exercise,weight,reps
+2025-01-15,Bench Press,135,8
+2025-01-15,Bench Press,145,6
+2025-01-17,Squat,185,5
+```
+
+- `date` — YYYY-MM-DD
+- `exercise` — any name; created automatically if it doesn't exist
+- `weight` — lbs, decimals ok; use `0` for bodyweight
+- `reps` — whole number
+- Multiple rows per exercise per date are allowed (import uses `insert_set`, not `upsert_set`)
+
+**Prompt to give Claude for formatting raw notes into this CSV:**
+
+> Convert the following workout log into a CSV with exactly these four columns in this order: `date,exercise,weight,reps`. Rules: date must be YYYY-MM-DD; exercise names capitalized consistently; weight in pounds (numbers only, use 0 for bodyweight); reps as whole numbers; one row per set; output only the raw CSV with no explanation or code fences. My workout data: [paste here]
 
 ---
 
@@ -205,6 +267,8 @@ All 32 tests must pass before committing.
 5. **No premature abstraction** — three similar lines beat a helper function that isn't needed yet.
 6. **`SPLIT_TEMPLATES` lives in two places** — `server/presets.py` (source of truth for the API) and `client/app.js` (duplicate for instant rendering). Keep them in sync when editing templates.
 7. **Always restart the Flask server** after Python file changes — the dev auto-reloader does not always catch everything.
+8. **Logging only through the calendar** — My Split (view-split / view-day) is structure management only. Never add log forms there.
+9. **Auto-save uses upsert** — the session log uses `PUT /api/exercises/<id>/sets/<date>` (one set per exercise per date). Import uses `POST` (multiple sets allowed). Don't conflate the two.
 
 ---
 
@@ -225,3 +289,7 @@ All 32 tests must pass before committing.
 | Workout split builder (day-based logging) | Done |
 | Quick Setup wizard (goal + split template) | Done |
 | Preset exercise library + exercise picker | Done |
+| Calendar-based UI (date → pick day → log sets) | Done |
+| Auto-save inputs with pre-fill on revisit | Done |
+| CSV import (file upload or paste) | Done |
+| Reset button (clear all data) | Done |
